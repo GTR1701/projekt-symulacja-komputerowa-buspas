@@ -22,7 +22,14 @@ from .variant_configs import (
 from .constants import (
     VEHICLE_TOTAL_SPACE,
     JAM_THRESHOLD_DISTANCE,
-    DETECTION_DISTANCE
+    DETECTION_DISTANCE,
+    BASE_VEHICLE_SPEED,
+    SLOW_TRAFFIC_THRESHOLD,
+    TRAFFIC_LIGHT_STOPPING_DISTANCE,
+    MIN_DENSITY_FACTOR,
+    DENSITY_REDUCTION_RATE,
+    SECONDS_PER_HOUR,
+    DEFAULT_SIDE_ROAD_POSITIONS
 )
 
 
@@ -136,7 +143,7 @@ class TrafficSimulation:
     def _generate_traffic_intensity(self):
         """Generuje natężenie ruchu zgodnie z rozkładem Poissona"""
         mean_intensity = np.mean(self.params.traffic_intensity_range)
-        return np.random.poisson(mean_intensity / 3600)
+        return np.random.poisson(mean_intensity / SECONDS_PER_HOUR)
     
     def _should_vehicle_turn(self) -> bool:
         """Określa czy pojazd skręci w boczną drogę"""
@@ -145,7 +152,7 @@ class TrafficSimulation:
     
     def _assign_turn_position(self) -> float:
         """Przypisuje pozycję skrętu pojazdu"""
-        positions = self.params.side_road_positions or [1.0, 2.5, 4.0]
+        positions = self.params.side_road_positions or DEFAULT_SIDE_ROAD_POSITIONS
         return random.choice(positions)
     
     def _process_vehicle_queue(self, max_capacity: int):
@@ -209,12 +216,11 @@ class TrafficSimulation:
     
     def _calculate_vehicle_speed(self, vehicle: Vehicle) -> float:
         """Oblicza prędkość pojazdu na podstawie warunków ruchu"""
-        base_speed = 50.0  # km/h
+        base_speed = BASE_VEHICLE_SPEED
         
         for light in self.traffic_lights:
-        for light in self.traffic_lights:
             distance_to_light = light.position - vehicle.current_position
-            if 0 < distance_to_light < 0.1 and light.current_phase == "red":
+            if 0 < distance_to_light < TRAFFIC_LIGHT_STOPPING_DISTANCE and light.current_phase == "red":
                 return 0.0
     
         vehicles_ahead = [other_vehicle for other_vehicle in self.vehicles 
@@ -223,7 +229,7 @@ class TrafficSimulation:
                          and other_vehicle.current_position - vehicle.current_position < DETECTION_DISTANCE
                          and other_vehicle.id != vehicle.id]
     
-        density_factor = max(0.1, 1.0 - len(vehicles_ahead) * 0.15)
+        density_factor = max(MIN_DENSITY_FACTOR, 1.0 - len(vehicles_ahead) * DENSITY_REDUCTION_RATE)
         
         return base_speed * density_factor
     
@@ -299,7 +305,7 @@ class TrafficSimulation:
     
     def _calculate_traffic_jam_length(self) -> float:
         """Oblicza długość korka (pojazdy o prędkości < 10 km/h)"""
-        slow_vehicles = [v for v in self.vehicles if v.speed < 10.0]
+        slow_vehicles = [v for v in self.vehicles if v.speed < SLOW_TRAFFIC_THRESHOLD]
         if not slow_vehicles:
             return 0.0
         
@@ -419,7 +425,6 @@ class TrafficSimulation:
             print(f"UWAGA: {len(self.vehicle_queue)} pojazdów pozostało w kolejce (nie mogły wjechać na drogę)")
             print(f"   Pojazdy w kolejce wygenerowane w czasie: {[v.entry_time for v in self.vehicle_queue[:5]]}{'...' if len(self.vehicle_queue) > 5 else ''}")
         
-        # Zwróć surowe dane zamiast obliczonych statystyk
         return {
             'completed_vehicles': len(self.completed_vehicles),
             'vehicles_in_simulation': len(self.vehicles),
@@ -441,7 +446,7 @@ class TrafficSimulation:
         
         for vehicle in self.completed_vehicles:
             if vehicle.travel_time > 0:
-                # Prędkość średnia = dystans / czas
+                # Prędkość średnia
                 distance = vehicle.turn_position if vehicle.will_turn and vehicle.turn_position else self.params.road_length
                 avg_speed = (distance / vehicle.travel_time) * 3600  # km/h
                 speeds.append(avg_speed)
@@ -513,7 +518,7 @@ class TrafficSimulation:
             lane_data_rows = []
             
             for lane_id, stats in lane_utilization.items():
-                if lane_id != 'summary':  # Pomiń podsumowanie na razie
+                if lane_id != 'summary':
                     lane_data_rows.append({
                         'simulation_id': base_filename,
                         'lane_id': lane_id,
@@ -615,7 +620,7 @@ class TrafficSimulation:
                 'lane_type': 'bus'
             }
         
-        total_vehicles = len(completed_vehicles)
+        total_vehicles = len(self.completed_vehicles)
         total_regular_lanes = len(regular_lanes)
         
         if total_regular_lanes > 0:

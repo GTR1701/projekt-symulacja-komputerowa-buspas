@@ -25,19 +25,18 @@ def create_visualization(results: Dict, filename_suffix: str = "wyniki", simulat
             variant_labels = {}
             for var in available_variants:
                 base_name = {
-                    'A': 'Wariant A\n(poszerzenie)',
-                    'B': 'Wariant B\n(buspas)', 
-                    'C': 'Wariant C\n(zoptymalizowany)',
-                    'D': 'Wariant D\n(intensywny ruch)',
-                    'CUSTOM': 'Konfiguracja\nniestandardowa',
-                    'minimal': 'Konfiguracja\nminimalistyczna',
-                    'maximal': 'Konfiguracja\nmaksymalna'
-                }.get(var, f'Wariant {var}')
+                    'A': 'A: 3P',
+                    'B': 'B: 2P+Bus', 
+                    'C': 'C: 3P+Bus',
+                    'D': 'D: 4P',
+                    'CUSTOM': f'CUSTOM_{available_variants.index(var)+1}',
+                    'minimal': 'MIN',
+                    'maximal': 'MAX'
+                }.get(var, var)
                 
-                try:
-                    config_desc = simulation_module.get_variant_short_description(var, params)
-                    variant_labels[var] = f"{base_name}\n{config_desc}"
-                except:
+                if var.startswith('CUSTOM_'):
+                    variant_labels[var] = var
+                else:
                     variant_labels[var] = base_name
         else:
             variant_labels = {var: f'Wariant {var}' for var in available_variants}
@@ -59,7 +58,7 @@ def create_visualization(results: Dict, filename_suffix: str = "wyniki", simulat
         for bar, value in zip(bars1, travel_times):
             height = bar.get_height()
             ax1.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                    f'{value:.0f}s', ha='center', va='bottom', fontsize=9)
+                    f'{value:.0f}s', ha='center', va='bottom', fontsize=2)
         
         speeds = [results[var]['avg_speed'] for var in available_variants]
         bars2 = ax2.bar(labels, speeds, color=bar_colors[:n_variants])
@@ -70,7 +69,7 @@ def create_visualization(results: Dict, filename_suffix: str = "wyniki", simulat
         for bar, value in zip(bars2, speeds):
             height = bar.get_height()
             ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                    f'{value:.2f}', ha='center', va='bottom', fontsize=9)
+                    f'{value:.2f}', ha='center', va='bottom', fontsize=7)
         
         jam_lengths = [results[var]['traffic_jam_length'] for var in available_variants]
         bars3 = ax3.bar(labels, jam_lengths, color=bar_colors[:n_variants])
@@ -81,7 +80,7 @@ def create_visualization(results: Dict, filename_suffix: str = "wyniki", simulat
         for bar, value in zip(bars3, jam_lengths):
             height = bar.get_height()
             ax3.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                    f'{value:.3f}', ha='center', va='bottom', fontsize=9)
+                    f'{value:.3f}', ha='center', va='bottom', fontsize=7)
         
         waiting_times = [results[var]['avg_waiting_time'] for var in available_variants]
         bars4 = ax4.bar(labels, waiting_times, color=bar_colors[:n_variants])
@@ -92,7 +91,7 @@ def create_visualization(results: Dict, filename_suffix: str = "wyniki", simulat
         for bar, value in zip(bars4, waiting_times):
             height = bar.get_height()
             ax4.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                    f'{value:.0f}s', ha='center', va='bottom', fontsize=9)
+                    f'{value:.0f}s', ha='center', va='bottom', fontsize=7)
         
         total_vehicles = [results[var]['total_vehicles'] for var in available_variants]
         bars5 = ax5.bar(labels, total_vehicles, color=bar_colors[:n_variants])
@@ -103,7 +102,7 @@ def create_visualization(results: Dict, filename_suffix: str = "wyniki", simulat
         for bar, value in zip(bars5, total_vehicles):
             height = bar.get_height()
             ax5.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                    f'{value}', ha='center', va='bottom', fontsize=9)
+                    f'{value}', ha='center', va='bottom', fontsize=7)
         
         bus_variants = [var for var in available_variants if results[var]['bus_efficiency'] > 0]
         if bus_variants:
@@ -119,7 +118,7 @@ def create_visualization(results: Dict, filename_suffix: str = "wyniki", simulat
             for bar, value in zip(bars6, bus_efficiency):
                 height = bar.get_height()
                 ax6.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                        f'{value:.1f}%', ha='center', va='bottom', fontsize=9)
+                        f'{value:.1f}%', ha='center', va='bottom', fontsize=7)
         else:
             ax6.text(0.5, 0.5, 'Brak wariantów\nz buspasem', 
                     ha='center', va='center', transform=ax6.transAxes, 

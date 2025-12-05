@@ -7,6 +7,13 @@ import pandas as pd
 import numpy as np
 import glob
 from typing import Dict, Any
+from simulation.constants import (
+    VEHICLE_TOTAL_SPACE,
+    SLOW_TRAFFIC_THRESHOLD,
+    JAM_THRESHOLD_DISTANCE,
+    BUS_EFFICIENCY_TIME_WEIGHT,
+    BUS_EFFICIENCY_SPEED_WEIGHT
+)
 
 
 def load_raw_simulation_data(data_dir: str, pattern: str) -> Dict[str, Any]:
@@ -56,12 +63,31 @@ def calculate_statistics_from_raw_data(vehicles_df: pd.DataFrame, config: pd.Ser
     Returns:
         Dict ze statystykami
     """
+    # Pojazdy, które ukończyły podróż
     completed = vehicles_df[vehicles_df['action'].isin(['exited', 'turned'])].copy()
-    completed = vehicles_df[vehicles_df['action'].isin(['exited', 'turned'])].copy()
+    
+    # Wszystkie pojazdy, które wjechały do symulacji
+    all_entered = vehicles_df[vehicles_df['action'].isin(['entered', 'entered_from_queue', 'exited', 'turned'])].copy()
+    total_entered = len(all_entered['vehicle_id'].unique()) if not all_entered.empty else 0
+    
+    # Pojazdy, które nie dotarły do celu (zostały w ruchu na końcu symulacji)
+    completed_ids = set(completed['vehicle_id'].unique()) if not completed.empty else set()
+    entered_ids = set(all_entered['vehicle_id'].unique()) if not all_entered.empty else set()
+    incomplete_count = len(entered_ids - completed_ids)
+    
+    # Dodatkowe analizy stanu pojazdów na końcu symulacji
+    latest_positions = vehicles_df.loc[vehicles_df.groupby('vehicle_id')['timestamp'].idxmax()]
+    vehicles_in_queue = len(latest_positions[latest_positions['action'] == 'queued'])
+    vehicles_in_traffic = len(latest_positions[latest_positions['action'].isin(['entered', 'entered_from_queue'])])
     
     if completed.empty:
         return {
             'total_vehicles': 0,
+            'total_entered': total_entered,
+            'incomplete_vehicles': incomplete_count,
+            'vehicles_in_queue': vehicles_in_queue,
+            'vehicles_in_traffic': vehicles_in_traffic,
+            'completion_rate': 0.0,
             'avg_travel_time': 0.0,
             'avg_speed': 0.0,
             'avg_waiting_time': 0.0,
@@ -70,6 +96,7 @@ def calculate_statistics_from_raw_data(vehicles_df: pd.DataFrame, config: pd.Ser
         }
     
     total_vehicles = len(completed)
+    completion_rate = (total_vehicles / total_entered * 100) if total_entered > 0 else 0.0
     avg_travel_time = completed['travel_time'].mean()
     avg_waiting_time = completed['waiting_time'].mean()
     
@@ -93,6 +120,11 @@ def calculate_statistics_from_raw_data(vehicles_df: pd.DataFrame, config: pd.Ser
     
     return {
         'total_vehicles': total_vehicles,
+        'total_entered': total_entered,
+        'incomplete_vehicles': incomplete_count,
+        'vehicles_in_queue': vehicles_in_queue,
+        'vehicles_in_traffic': vehicles_in_traffic,
+        'completion_rate': completion_rate,
         'avg_travel_time': avg_travel_time,
         'avg_speed': avg_speed,
         'avg_waiting_time': avg_waiting_time,
@@ -104,13 +136,12 @@ def calculate_statistics_from_raw_data(vehicles_df: pd.DataFrame, config: pd.Ser
 def calculate_jam_length_from_data(vehicles_df: pd.DataFrame) -> float:
     """Oblicza długość korka na podstawie danych o pojazdach"""
     latest_positions = vehicles_df.loc[vehicles_df.groupby('vehicle_id')['timestamp'].idxmax()]
-    latest_positions = vehicles_df.loc[vehicles_df.groupby('vehicle_id')['timestamp'].idxmax()]
-    moving_vehicles = latest_positions[latest_positions['action'] == 'entered']
+    moving_vehicles = latest_positions[latest_positions['action'].isin(['entered', 'entered_from_queue'])]
     
     if moving_vehicles.empty:
         return 0.0
     
-    slow_vehicles = moving_vehicles[moving_vehicles['speed'] < 10.0]
+    slow_vehicles = moving_vehicles[moving_vehicles['speed'] < SLOW_TRAFFIC_THRESHOLD]
     
     if slow_vehicles.empty:
         return 0.0
@@ -118,18 +149,18 @@ def calculate_jam_length_from_data(vehicles_df: pd.DataFrame) -> float:
     positions = sorted(slow_vehicles['position'].values)
     
     if len(positions) < 2:
-        return 0.005  # Jeden pojazd = 5m
+        return VEHICLE_TOTAL_SPACE  # Jeden pojazd
     
     max_jam_length = 0.0
-    current_jam_length = 0.005  # Pierwszy pojazd
+    current_jam_length = VEHICLE_TOTAL_SPACE  # Pierwszy pojazd
     
     for i in range(1, len(positions)):
         gap = positions[i] - positions[i-1]
-        if gap < 0.050:  # 50m
-            current_jam_length += 0.005
+        if gap < JAM_THRESHOLD_DISTANCE:
+            current_jam_length += VEHICLE_TOTAL_SPACE
         else:
             max_jam_length = max(max_jam_length, current_jam_length)
-            current_jam_length = 0.005
+            current_jam_length = VEHICLE_TOTAL_SPACE
     
     return max(max_jam_length, current_jam_length)
 
@@ -172,6 +203,6 @@ def calculate_bus_efficiency_from_data(completed_df: pd.DataFrame, config: pd.Se
         avg_bus_speed = np.mean(bus_speeds)
         avg_regular_speed = np.mean(regular_speeds)
         speed_efficiency = max(0.0, (avg_bus_speed - avg_regular_speed) / avg_regular_speed * 100)
-        return float(time_efficiency * 0.7 + speed_efficiency * 0.3)
+        return float(time_efficiency * BUS_EFFICIENCY_TIME_WEIGHT + speed_efficiency * BUS_EFFICIENCY_SPEED_WEIGHT)
     
     return float(time_efficiency)

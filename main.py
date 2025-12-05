@@ -1,22 +1,17 @@
-#!/usr/bin/env python3
 """
-Main entry point for Traffic Simulation - Problem Jagodzińskiego
-Autor: Dawid Kowal
-
-Główny punkt wejścia do aplikacji symulacji ruchu drogowego
+Główny punkt wejścia do symulacji ruchu drogowego
 """
 
 import numpy as np
 import random
 import sys
 import os
+from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from simulation import (
     SimulationParameters, 
-    RoadConfiguration, 
-    TrafficSimulation,
     TrafficLight,
     get_variant_a_parameters,
     get_variant_b_parameters,
@@ -24,8 +19,6 @@ from simulation import (
     get_variant_d_parameters,
     create_simulation_with_parameters
 )
-
-import analysis
 
 
 def main():
@@ -52,8 +45,8 @@ def main():
     params = SimulationParameters()
     
     predefined_variants = {
-        'A': ('Wariant A: 3 pasy, bez buspasa', RoadConfiguration.VARIANT_A, None),
-        'B': ('Wariant B: 2 pasy + buspas', RoadConfiguration.VARIANT_B, None), 
+        'A': ('Wariant A: 3 pasy, bez buspasa', None, get_variant_a_parameters(params)),
+        'B': ('Wariant B: 2 pasy + buspas', None, get_variant_b_parameters(params)), 
         'C': ('Wariant C: zoptymalizowany', None, get_variant_c_parameters(params)),
         'D': ('Wariant D: wysokie natężenie', None, get_variant_d_parameters(params))
     }
@@ -64,8 +57,10 @@ def main():
         print("\n" + "="*40)
         print("PREDEFINIOWANE SCENARIUSZE")
         print("="*40)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         for variant_id, (description, config, infra_params) in predefined_variants.items():
-            scenarios_to_run.append((variant_id, description, config, infra_params, f"variant_{variant_id.lower()}"))
+            filename = f"variant_{variant_id.lower()}_{timestamp}"
+            scenarios_to_run.append((variant_id, description, config, infra_params, filename))
             print(f"{description}")
     
     if mode in ["2", "3"]:
@@ -140,7 +135,8 @@ def main():
             custom_sim_params.traffic_light_cycle = cycle_duration
             
             custom_description = f"Niestandardowy: {lane_count}P{'+ buspas' if has_bus_lane else ''}, int={traffic_intensity:.1f}, bus={privileged_percentage}%"
-            custom_id = f"custom_{lane_count}l_{int(has_bus_lane)}_i{traffic_intensity:.1f}_b{privileged_percentage}_g{int(green_ratio*cycle_duration)}"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            custom_id = f"custom_{lane_count}l_{int(has_bus_lane)}_i{traffic_intensity:.1f}_b{privileged_percentage}_g{int(green_ratio*cycle_duration)}_{timestamp}"
             
             scenarios_to_run.append((
                 "CUSTOM", 
@@ -172,11 +168,7 @@ def main():
         print(f"\nScenariusz {i}/{len(scenarios_to_run)}: {description}")
         
         try:
-            if config is not None:
-                sim = TrafficSimulation(config, sim_params)
-            else:
-                sim = create_simulation_with_parameters(sim_params, infra_params)
-            
+            sim = create_simulation_with_parameters(sim_params, infra_params)
             result = sim.run_simulation(save_data=True, data_filename=filename)
             
             print(f"   Ukończono - zapisano surowe dane jako '{filename}'")
@@ -185,7 +177,7 @@ def main():
             print(f"   Błąd: {e}")
     
     print(f"\nWszystkie symulacje zakończone")
-    print(f"Dane zapisane w katalogu: simulation_data/")
+    print(f"Dane zapisane w katalogu: simulation_data/ (z timestampem {datetime.now().strftime('%Y%m%d_%H%M%S')})")
     print(f"\nAby przeprowadzić analizę, uruchom:")
     print(f"   python3 analysis_main.py")
     print("="*60)

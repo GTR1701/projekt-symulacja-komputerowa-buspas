@@ -31,18 +31,19 @@ System symulacji komputerowej służy do **analizy efektywności różnych rozwi
 
 ### Badane scenariusze
 
-| Scenariusz    | Opis konfiguracji             | Cel analizy                                      |
-| ------------- | ----------------------------- | ------------------------------------------------ |
-| **Wariant A** | 3 pasy regularne, bez buspasa | Rozwiązanie przez poszerzenie drogi              |
-| **Wariant B** | 2 pasy regularne + buspas     | Priorytet dla komunikacji publicznej             |
-| **Wariant C** | Konfiguracja zoptymalizowana  | Równowaga między przepustowością a efektywnością |
-| **Wariant D** | 4 pasy + buspas               | Rozwiązanie dla intensywnego ruchu               |
+| Scenariusz    | Opis konfiguracji                    | Cel analizy                                      |
+| ------------- | ------------------------------------ | ------------------------------------------------ |
+| **Wariant A** | 3 pasy regularne, bez buspasa        | Rozwiązanie przez poszerzenie drogi              |
+| **Wariant B** | 2 pasy regularne + buspas            | Priorytet dla komunikacji publicznej             |
+| **Wariant C** | 3 pasy regularne + buspas            | Zoptymalizowana infrastruktura hybrydowa         |
+| **Wariant D** | 4 pasy regularne, bez buspasa        | Rozwiązanie dla bardzo intensywnego ruchu        |
 
 ### Kluczowe hipotezy badawcze
 
 1. **Hipoteza efektywności**: Buspas usprawnia ruch komunikacji publicznej
 2. **Hipoteza przepustowości**: Wpływ buspasa na ogólny ruch nie jest jednoznaczny
 3. **Hipoteza korków**: Buspas może redukować korki w pewnych warunkach
+4. **Hipoteza równoważności**: Przy 100% autobusów, 1 pas zwykły ≈ 1 buspas
 
 ## Architektura systemu
 
@@ -93,11 +94,11 @@ projekt-symulacja-komputerowa-buspas/
 │   ├── infrastructure_config.py    # Konfiguracja infrastruktury
 │   ├── simulation_parameters.py    # Parametry symulacji
 │   ├── variant_configs.py          # Predefiniowane warianty
-│   └── constants.py                # Stałe fizyczne
+│   └── constants.py                # Stałe
 ├── analysis/                      # Moduł analizy
 │   ├── __init__.py                 # Eksport modułu analizy
 │   ├── data_loader.py              # Ładowanie surowych danych
-│   ├── comparison_analysis.py      # Analiza porównawcza
+│   ├── comparison_analysis.py      # Analiza porównawcza i grupowana
 │   ├── lane_analysis.py            # Analiza pojemności pasów
 │   └── visualization.py            # Generowanie wykresów
 └── simulation_data/               # Dane wyjściowe (gitignore)
@@ -225,14 +226,26 @@ class VehicleType(Enum):
     PRIVILEGED = "privileged"  # Autobusy/komunikacja publiczna
 ```
 
-### Stałe fizyczne
+### Stałe
 
 ```python
-VEHICLE_LENGTH = 0.0045      # km (4.5m)
-VEHICLE_SPACING = 0.0005     # km (0.5m)
-VEHICLE_TOTAL_SPACE = 0.005  # km (5m na pojazd)
-JAM_THRESHOLD_DISTANCE = 0.050  # km (50m = korek)
-DETECTION_DISTANCE = 0.500   # km (500m zasięg wykrywania)
+# Wymiary pojazdów
+VEHICLE_LENGTH = 0.0045              # km (4.5m)
+VEHICLE_SPACING = 0.0005             # km (0.5m)
+VEHICLE_TOTAL_SPACE = 0.005          # km (5m na pojazd)
+
+# Progi detekcji ruchu
+JAM_THRESHOLD_DISTANCE = 0.050       # km (50m = korek)
+DETECTION_DISTANCE = 0.500           # km (500m zasięg wykrywania)
+
+# Prędkości i ruch
+BASE_VEHICLE_SPEED = 50.0            # km/h (podstawowa prędkość)
+SLOW_TRAFFIC_THRESHOLD = 10.0        # km/h (próg zakorkowanego ruchu)
+TRAFFIC_LIGHT_STOPPING_DISTANCE = 0.1  # km (dystans zatrzymania)
+
+# Analiza efektywności buspasa
+BUS_EFFICIENCY_TIME_WEIGHT = 0.7     # waga czasu w kalkulacji efektywności
+BUS_EFFICIENCY_SPEED_WEIGHT = 0.3    # waga prędkości w kalkulacji efektywności
 ```
 
 ## Analiza wyników
@@ -284,10 +297,30 @@ System generuje **5 rodzajów plików danych** dla każdej symulacji:
 Po uruchomieniu `python3 analysis_main.py`:
 
 1. **Porównanie wszystkich wariantów** - Analiza A,B,C,D + scenariusze niestandardowe
-2. **Analiza efektywności buspasa** - Porównanie 3P vs 2P+Bus vs 2P
+2. **Analiza efektywności buspasa** - Porównanie grupowane: 3P vs 2P+Bus vs 3P+Bus
 3. **Test niestandardowej konfiguracji** - Weryfikacja konkretnych parametrów
-4. **Analiza pojemności pasów** - Wykorzystanie infrastruktury
-5. **Wszystkie powyższe** - Kompletna analiza
+4. **Analiza pojemności pasów** - Szczegółowe wykorzystanie infrastruktury
+5. **Wszystkie powyższe** - Kompletna analiza z wizualizacją
+
+### Przykładowe wyniki analizy grupowanej
+
+```
+PORÓWNANIE 1: Podobna przepustowość
+   3 pasy bez buspasa vs 2 pasy + buspas
+--------------------------------------------------
+   Czas przejazdu (A→B): +12.3%
+   Średnia prędkość (A→B): -8.7%
+   Redukcja korków (A→B): +23.4%
+
+PORÓWNANIE 2: Wpływ dodania buspasa
+   3 pasy + buspas vs 2 pasy + buspas
+--------------------------------------------------
+   Czas przejazdu (C→B): -5.1%
+   Średnia prędkość (C→B): +7.2%
+   Redukcja korków (C→B): -15.6%
+   
+Efektywność buspasa: 28.7%
+```
 
 ### Przykładowe wyniki
 
@@ -315,13 +348,20 @@ Plik `trivial_cases_tester.py` implementuje **test równoważności** z 100% aut
 python3 trivial_cases_tester.py
 ```
 
-#### Cel testu
+#### Zakres testów
 
-Weryfikuje czy przy **100% pojazdów uprzywilejowanych** (autobusy):
+1. **Test równoważności podstawowy** - 1 pas zwykły vs 1 buspas (100% autobusów)
+2. **Test scenariuszy konfiguracyjnych** - różne warianty infrastruktury z samymi autobusami
+3. **Test wysokiej intensywności** - weryfikacja przy większym obciążeniu
+4. **Test mieszanego ruchu** - scenariusze z 15% autobusów przy wysokiej intensywności
 
-- 1 pas regularny ≈ 1 buspas (efektywność)
-- System poprawnie obsługuje graniczne przypadki
-- Konfiguracja infrastruktury jest spójna
+#### Funkcje testera
+
+- **Test równoważności** - sprawdza czy przy 100% autobusów systemy są równoważne
+- **Analiza konfiguracji** - porównuje różne układy infrastruktury  
+- **Test obciążenia** - weryfikuje stabilność przy wysokiej intensywności
+- **Automatyczny zapis** - wszystkie wyniki z timestampami
+- **Powtarzalne testy** - możliwość uruchomienia z różnymi seedami
 
 #### Przykładowe wyniki testu
 
@@ -507,16 +547,16 @@ print(f"Obsłużono: {result['completed_vehicles']} pojazdów")
 ### Przykład 3: Analiza efektywności buspasa
 
 ```python
-#!/usr/bin/env python3
 import analysis
 
 # Uruchom analizę porównawczą efektywności
 results = analysis.compare_bus_lane_efficiency()
 
 efficiency = results['efficiency_metrics']
-print(f"Poprawa czasu przejazdu przez buspas: {efficiency['time_improvement_a_b']:.1f}%")
-print(f"Redukcja korków przez buspas: {efficiency['jam_improvement_a_b']:.1f}%")
-print(f"Efektywność buspasa: {efficiency.get('bus_efficiency', 0):.1f}%")
+print(f"Poprawa czasu przejazdu (A→B): {efficiency['time_improvement_a_b']:.1f}%")
+print(f"Redukcja korków (A→B): {efficiency['jam_improvement_a_b']:.1f}%")
+print(f"Efektywność buspasa B: {efficiency.get('bus_efficiency', 0):.1f}%")
+print(f"Wpływ dodania buspasa (A→C): {efficiency['time_improvement_a_c']:.1f}%")
 ```
 
 ### Przykład 4: Analiza pojemności pasów
@@ -538,18 +578,26 @@ print_lane_capacity_analysis(lane_analysis)
 #    Pojemność: 33.9 poj./km
 ```
 
-### Przykład 5: Automatyczna wizualizacja
+### Przykład 5: Testy przypadków trywialnych
 
 ```python
 #!/usr/bin/env python3
-from analysis import run_comparison_study, create_visualization
-import simulation
+from trivial_cases_tester import AllBusTester
 
-# Uruchom porównanie wszystkich wariantów
-results = run_comparison_study(simulation)
+# Uruchom test równoważności
+tester = AllBusTester(base_seed=42)
+results = tester.run_full_test_suite()
 
-# Wygeneruj wykresy porównawcze
-create_visualization(results, "analiza_wszystkich_wariantow", simulation)
-
-# Wynik: plik problem_jagodzinski_analiza_wszystkich_wariantow.png
+# Sprawdź wyniki testu równoważności
+if 'equivalence' in results:
+    equiv = results['equivalence']
+    regular_time = equiv['regular_lane']['avg_travel_time']
+    bus_time = equiv['bus_lane']['avg_travel_time']
+    difference = abs(regular_time - bus_time) / min(regular_time, bus_time) * 100
+    
+    print(f"Test równoważności:")
+    print(f"  1 pas zwykły: {regular_time:.1f}s")
+    print(f"  1 buspas: {bus_time:.1f}s")
+    print(f"  Różnica: {difference:.1f}%")
+    print(f"  Status: {'POTWIERDZONA' if difference < 5 else 'NIEPOTWIERDZONA'}")
 ```

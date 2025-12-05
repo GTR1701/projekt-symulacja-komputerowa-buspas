@@ -14,7 +14,7 @@ Data: 2025-11-30
 import random
 import numpy as np
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import time
 import os
 
@@ -61,6 +61,19 @@ class AllBusTester:
             side_road_positions=[1.0, 2.5, 4.0]
         )
     
+    def get_high_traffic_simulation_params(self) -> SimulationParameters:
+        """Zwraca parametry symulacji z wysoką intensywnością ruchu"""
+        return SimulationParameters(
+            road_length=5.0,
+            simulation_duration=600.0,  # dłuższy czas dla większej reprezentatywności
+            lane_capacity=150,
+            privileged_percentage=0.15,  # 15% autobusów domyślnie
+            traffic_intensity_range=(3600, 5400),  # wysoka intensywność
+            turning_percentage_range=(0.10, 0.20),
+            green_light_range=(45.0, 65.0),
+            side_road_positions=[1.0, 2.5, 4.0]
+        )
+    
     def test_all_bus_scenarios(self) -> Dict[str, Any]:
         """
         Testuje różne konfiguracje infrastruktury z 100% autobusów
@@ -93,7 +106,7 @@ class AllBusTester:
             
             try:
                 sim = create_simulation_with_parameters(params, config_params)
-                raw_results = sim.run_simulation(save_data=True, data_filename=f"all_bus_{config_name}")
+                raw_results = sim.run_simulation(save_data=True, data_filename=f"all_bus_{config_name}_{self.test_timestamp}")
                 sim_results = self._calculate_statistics_from_simulation(sim)
                 sim_results['config_name'] = config_name
                 sim_results['config_description'] = config_desc
@@ -147,7 +160,7 @@ class AllBusTester:
         
         try:
             sim = create_simulation_with_parameters(equivalence_params, regular_lane_config)
-            raw_results = sim.run_simulation(save_data=True, data_filename="equivalence_regular_lane")
+            raw_results = sim.run_simulation(save_data=True, data_filename=f"equivalence_regular_lane_{self.test_timestamp}")
             sim_results_regular = self._calculate_statistics_from_simulation(sim)
             sim_results_regular['config_name'] = 'regular_lane'
             sim_results_regular['raw_data'] = raw_results
@@ -176,7 +189,7 @@ class AllBusTester:
         
         try:
             sim = create_simulation_with_parameters(equivalence_params, bus_lane_config)
-            raw_results = sim.run_simulation(save_data=True, data_filename="equivalence_bus_lane")
+            raw_results = sim.run_simulation(save_data=True, data_filename=f"equivalence_bus_lane_{self.test_timestamp}")
             sim_results_bus = self._calculate_statistics_from_simulation(sim)
             sim_results_bus['config_name'] = 'bus_lane'
             sim_results_bus['raw_data'] = raw_results
@@ -203,17 +216,21 @@ class AllBusTester:
             print(f"      1 pas zwykły:  {time_regular:.1f}s, {speed_regular:.1f} km/h")
             print(f"      1 buspas:      {time_bus:.1f}s, {speed_bus:.1f} km/h")
             
-            time_diff = abs(time_regular - time_bus)
-            time_percent = (time_diff / min(time_regular, time_bus)) * 100 if min(time_regular, time_bus) > 0 else 0
+            # Konwersja na float dla bezpiecznych operacji matematycznych
+            time_regular_f = float(time_regular)
+            time_bus_f = float(time_bus)
+            
+            time_diff = abs(time_regular_f - time_bus_f)
+            time_percent = (time_diff / min(time_regular_f, time_bus_f)) * 100 if min(time_regular_f, time_bus_f) > 0 else 0
             
             if time_percent < 5.0:
                 print(f"      RÓWNOWAŻNOŚĆ POTWIERDZONA! (różnica {time_percent:.1f}%)")
             else:
                 print(f"      BRAK RÓWNOWAŻNOŚCI! (różnica: {time_percent:.1f}%)")
-                if time_regular < time_bus:
-                    print(f"      Pas zwykły szybszy o {((time_bus - time_regular) / time_regular) * 100:.1f}%")
+                if time_regular_f < time_bus_f:
+                    print(f"      Pas zwykły szybszy o {((time_bus_f - time_regular_f) / time_regular_f) * 100:.1f}%")
                 else:
-                    print(f"      Buspas szybszy o {((time_regular - time_bus) / time_bus) * 100:.1f}%")
+                    print(f"      Buspas szybszy o {((time_regular_f - time_bus_f) / time_bus_f) * 100:.1f}%")
         
         self.results['equivalence'] = results
         return results
@@ -254,7 +271,7 @@ class AllBusTester:
         
         try:
             sim = create_simulation_with_parameters(all_bus_high_traffic, regular_lane_high_config)
-            raw_results = sim.run_simulation(save_data=True, data_filename="test_high_traffic_regular_lane")
+            raw_results = sim.run_simulation(save_data=True, data_filename=f"test_high_traffic_regular_lane_{self.test_timestamp}")
             sim_results_regular_high = self._calculate_statistics_from_simulation(sim)
             sim_results_regular_high['config_name'] = 'high_traffic_regular_lane'
             sim_results_regular_high['config_description'] = '1 pas zwykły + wysoki ruch + 100% autobusów'
@@ -285,7 +302,7 @@ class AllBusTester:
         
         try:
             sim = create_simulation_with_parameters(all_bus_high_traffic, bus_lane_high_config)
-            raw_results = sim.run_simulation(save_data=True, data_filename="test_high_traffic_bus_lane")
+            raw_results = sim.run_simulation(save_data=True, data_filename=f"test_high_traffic_bus_lane_{self.test_timestamp}")
             sim_results_bus_high = self._calculate_statistics_from_simulation(sim)
             sim_results_bus_high['config_name'] = 'high_traffic_bus_lane'
             sim_results_bus_high['config_description'] = '1 buspas + wysoki ruch + 100% autobusów'
@@ -357,7 +374,7 @@ class AllBusTester:
             
             try:
                 sim = create_simulation_with_parameters(mixed_traffic_params, config_params)
-                raw_results = sim.run_simulation(save_data=True, data_filename=f"test_high_traffic_{config_name}")
+                raw_results = sim.run_simulation(save_data=True, data_filename=f"test_high_traffic_{config_name}_{self.test_timestamp}")
                 sim_results = self._calculate_statistics_from_simulation(sim)
                 sim_results['config_name'] = config_name
                 sim_results['config_description'] = config_desc
@@ -424,7 +441,7 @@ class AllBusTester:
         if hasattr(sim, 'vehicles') and sim.vehicles:
             jammed_vehicles = []
             for vehicle in sim.vehicles:
-                if hasattr(vehicle, 'current_speed') and vehicle.current_speed < 5.0:
+                if hasattr(vehicle, 'speed') and vehicle.speed < 5.0:
                     jammed_vehicles.append(vehicle)
             traffic_jam_length = len(jammed_vehicles) * 0.005  # m
         
@@ -485,7 +502,7 @@ class AllBusTester:
         self.results['analysis'] = analysis
         return analysis
     
-    def save_summary_to_csv(self, filename: str = None) -> str:
+    def save_summary_to_csv(self, filename: Optional[str] = None) -> str:
         """Zapisuje podsumowanie wyników testów do CSV"""
         if filename is None:
             filename = f"all_bus_summary_{self.test_timestamp}.csv"

@@ -9,7 +9,7 @@ from .simulation_parameters import RoadConfiguration
 
 
 def get_variant_a_parameters(params: SimulationParameters) -> Dict[str, Any]:
-    """Wariant A: Droga poszerzona o dodatkowe pasy, bez buspasa"""
+    """Wariant A: 3 pasy regularne, bez buspasa"""
     return {
         'num_lanes': 3,
         'has_bus_lane': False,
@@ -20,7 +20,7 @@ def get_variant_a_parameters(params: SimulationParameters) -> Dict[str, Any]:
 
 
 def get_variant_b_parameters(params: SimulationParameters) -> Dict[str, Any]:
-    """Wariant B: Droga jednopasmowa z oddzielnym buspassem"""
+    """Wariant B: 2 pasy regularne + buspas"""
     return {
         'num_lanes': 2,
         'has_bus_lane': True,
@@ -31,24 +31,24 @@ def get_variant_b_parameters(params: SimulationParameters) -> Dict[str, Any]:
 
 
 def get_variant_c_parameters(params: SimulationParameters) -> Dict[str, Any]:
-    """Wariant C: Konfiguracja zoptymalizowana - więcej pasów + buspas, mniej świateł"""
+    """Wariant C: 3 pasy regularne + buspas"""
     return {
         'num_lanes': 3,
         'has_bus_lane': True,
         'bus_lane_capacity': params.lane_capacity,
-        'traffic_light_positions': [1.5, 3.0],  # Mniej sygnalizacji
-        'green_ratio': 0.7  # Dłuższe zielone światło
+        'traffic_light_positions': params.side_road_positions or [1.0, 2.5, 4.0],
+        'green_ratio': 0.6
     }
 
 
 def get_variant_d_parameters(params: SimulationParameters) -> Dict[str, Any]:
-    """Wariant D: Konfiguracja dla intensywnego ruchu - 4 pasy + buspas"""
+    """Wariant D: 4 pasy regularne, bez buspasa"""
     return {
         'num_lanes': 4,
-        'has_bus_lane': True,
-        'bus_lane_capacity': params.lane_capacity,
-        'traffic_light_positions': [0.8, 1.8, 2.8, 3.8],  # Więcej świateł
-        'green_ratio': 0.65
+        'has_bus_lane': False,
+        'bus_lane_capacity': 0,
+        'traffic_light_positions': params.side_road_positions or [1.0, 2.5, 4.0],
+        'green_ratio': 0.6
     }
 
 
