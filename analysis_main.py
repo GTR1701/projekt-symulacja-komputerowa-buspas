@@ -23,13 +23,13 @@ def main():
     data_dir = "simulation_data"
     if not os.path.exists(data_dir):
         print("Brak katalogu simulation_data!")
-        print("Najpierw uruchom: python3 main.py")
+        print("Najpierw uruchom: python3 simulation_main.py")
         return 1
     
     csv_files = glob.glob(os.path.join(data_dir, "*.csv"))
     if not csv_files:
         print("Brak plików CSV z danymi!")
-        print("Najpierw uruchom: python3 main.py")
+        print("Najpierw uruchom: python3 simulation_main.py")
         return 1
     
     print(f"Znaleziono {len(csv_files)} plików z danymi")
