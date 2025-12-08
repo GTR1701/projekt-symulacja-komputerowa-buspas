@@ -216,7 +216,6 @@ class AllBusTester:
             print(f"      1 pas zwykły:  {time_regular:.1f}s, {speed_regular:.1f} km/h")
             print(f"      1 buspas:      {time_bus:.1f}s, {speed_bus:.1f} km/h")
             
-            # Konwersja na float dla bezpiecznych operacji matematycznych
             time_regular_f = float(time_regular)
             time_bus_f = float(time_bus)
             
@@ -405,11 +404,8 @@ class AllBusTester:
         Returns:
             Słownik ze statystykami symulacji
         """
-        # Oblicz całkowitą liczbę wygenerowanych pojazdów
-        # Wliczamy: ukończone + nadal w ruchu + w kolejce
         total_generated_vehicles = len(sim.completed_vehicles) + len(sim.vehicles) + len(sim.vehicle_queue)
         
-        # Jeśli nie ma ukończonych pojazdów, zwróć podstawowe statystyki
         if not sim.completed_vehicles:
             return {
                 'total_vehicles': total_generated_vehicles,
@@ -423,7 +419,6 @@ class AllBusTester:
                 'bus_efficiency': 0.0
             }
         
-        # Oblicz statystyki dla ukończonych pojazdów
         travel_times = [v.travel_time for v in sim.completed_vehicles if v.travel_time > 0]
         waiting_times = [v.waiting_time for v in sim.completed_vehicles]
         speeds = []

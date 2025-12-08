@@ -55,7 +55,6 @@ def main(reruns: int = None, base_seed: int = 42):
     print("SYSTEM SYMULACJI PROBLEMU JAGODZIŃSKIEGO")
     print("="*60)
     
-    # Pytanie o liczbę powtórzeń
     if reruns is None:
         try:
             reruns_input = input("\nLiczba powtórzeń symulacji dla każdego scenariusza (1-50, Enter = 1): ").strip()
@@ -212,11 +211,9 @@ def main(reruns: int = None, base_seed: int = 42):
             run_counter += 1
             run_seed = base_seed + run_num - 1
             
-            # Ustaw seed dla tej konkretnej symulacji
             np.random.seed(run_seed)
             random.seed(run_seed)
             
-            # Nazwa pliku z numerem powtórzenia
             if reruns > 1:
                 filename = f"{filename_base}_run{run_num:02d}"
             else:

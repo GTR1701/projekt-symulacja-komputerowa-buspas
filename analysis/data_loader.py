@@ -63,19 +63,15 @@ def calculate_statistics_from_raw_data(vehicles_df: pd.DataFrame, config: pd.Ser
     Returns:
         Dict ze statystykami
     """
-    # Pojazdy, które ukończyły podróż
     completed = vehicles_df[vehicles_df['action'].isin(['exited', 'turned'])].copy()
     
-    # Wszystkie pojazdy, które wjechały do symulacji
     all_entered = vehicles_df[vehicles_df['action'].isin(['entered', 'entered_from_queue', 'exited', 'turned'])].copy()
     total_entered = len(all_entered['vehicle_id'].unique()) if not all_entered.empty else 0
     
-    # Pojazdy, które nie dotarły do celu (zostały w ruchu na końcu symulacji)
     completed_ids = set(completed['vehicle_id'].unique()) if not completed.empty else set()
     entered_ids = set(all_entered['vehicle_id'].unique()) if not all_entered.empty else set()
     incomplete_count = len(entered_ids - completed_ids)
     
-    # Dodatkowe analizy stanu pojazdów na końcu symulacji
     latest_positions = vehicles_df.loc[vehicles_df.groupby('vehicle_id')['timestamp'].idxmax()]
     vehicles_in_queue = len(latest_positions[latest_positions['action'] == 'queued'])
     vehicles_in_traffic = len(latest_positions[latest_positions['action'].isin(['entered', 'entered_from_queue'])])
@@ -109,7 +105,7 @@ def calculate_statistics_from_raw_data(vehicles_df: pd.DataFrame, config: pd.Ser
                 distance = float(vehicle['turn_position'])
             else:
                 distance = road_length
-            avg_speed = (distance / vehicle['travel_time']) * 3600  # km/h
+            avg_speed = (distance / vehicle['travel_time']) * 3600
             speeds.append(avg_speed)
     
     avg_speed = np.mean(speeds) if speeds else 0.0
@@ -149,10 +145,10 @@ def calculate_jam_length_from_data(vehicles_df: pd.DataFrame) -> float:
     positions = sorted(slow_vehicles['position'].values)
     
     if len(positions) < 2:
-        return VEHICLE_TOTAL_SPACE  # Jeden pojazd
+        return VEHICLE_TOTAL_SPACE
     
     max_jam_length = 0.0
-    current_jam_length = VEHICLE_TOTAL_SPACE  # Pierwszy pojazd
+    current_jam_length = VEHICLE_TOTAL_SPACE
     
     for i in range(1, len(positions)):
         gap = positions[i] - positions[i-1]

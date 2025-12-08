@@ -9,25 +9,25 @@ from enum import Enum
 
 class RoadConfiguration(Enum):
     """Konfiguracje dróg do testowania"""
-    VARIANT_A = "A"  # Więcej pasów, bez buspasa
-    VARIANT_B = "B"  # Mniej pasów + oddzielny buspas
-    CUSTOM = "CUSTOM"  # Niestandardowa konfiguracja
+    VARIANT_A = "A"
+    VARIANT_B = "B"
+    CUSTOM = "CUSTOM"
 
 
 @dataclass
 class SimulationParameters:
     """Parametry symulacji"""
-    traffic_intensity_range: Tuple[int, int] = (500, 1500)  # pojazdy/h
-    turning_percentage_range: Tuple[float, float] = (0.05, 0.20)  # 5-20%
-    privileged_percentage: float = 0.05  # 3-10%, domyślnie 5%
+    traffic_intensity_range: Tuple[int, int] = (500, 1500)
+    turning_percentage_range: Tuple[float, float] = (0.05, 0.20)
+    privileged_percentage: float = 0.05
     
-    road_length: float = 5.0  # km
-    lane_capacity: int = 75  # pojazdy/km
-    traffic_light_cycle: float = 67.5  # sekundy (domyślny, może być nadpisany)
+    road_length: float = 5.0
+    lane_capacity: int = 75
+    traffic_light_cycle: float = 67.5
     green_light_range: Tuple[float, float] = (45.0, 90.0)
     
-    simulation_duration: float = 3600.0  # 1 godzina w sekundach
-    time_step: float = 1.0  # sekunda
+    simulation_duration: float = 3600.0
+    time_step: float = 1.0
     
     side_road_positions: Optional[List[float]] = None
     

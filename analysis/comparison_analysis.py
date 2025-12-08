@@ -55,13 +55,13 @@ def compare_bus_lane_efficiency(save_csv: bool = True) -> Dict[str, Any]:
     results_b = results_data.get('B', {})  
     results_c = results_data.get('C', {})
     
-    efficiency_metrics = _analyze_efficiency_metrics(results_a, results_b, results_c)
+    efficiency_metrics = analyze_efficiency_metrics(results_a, results_b, results_c)
     
-    _display_efficiency_results(results_a, results_b, results_c, efficiency_metrics)
+    display_efficiency_results(results_a, results_b, results_c, efficiency_metrics)
     
     comparison_table = None
     if save_csv:
-        comparison_table = _save_efficiency_results(results_a, results_b, results_c, efficiency_metrics)
+        comparison_table = save_efficiency_results(results_a, results_b, results_c, efficiency_metrics)
     
     return {
         'results': {'A': results_a, 'B': results_b, 'C': results_c},
@@ -173,7 +173,7 @@ def run_comparison_study(simulation_module) -> Dict[str, Any]:
     print(f"   - Standardowe: {standard_count}")
     print(f"   - Niestandardowe: {custom_count}")
     
-    _display_comparison_results(results, params, simulation_module)
+    display_comparison_results(results, params, simulation_module)
     
     return results
 
@@ -196,7 +196,7 @@ def test_custom_configuration(
     params.lane_count = lane_count
     params.bus_lane = bus_lane
     params.traffic_intensity = traffic_intensity
-    params.privileged_percentage = privileged_percentage / 100.0  # %
+    params.privileged_percentage = privileged_percentage / 100.0
     params.verbosity = 1 if verbose else 0
     
     config_id = f"custom_{lane_count}lanes_{int(bus_lane)}bus_{traffic_intensity:.1f}int_{privileged_percentage}priv"
@@ -210,7 +210,6 @@ def test_custom_configuration(
         print(f"   ID konfiguracji: {config_id}")
     
     try:
-        # Utworzenie konfiguracji infrastruktury
         infrastructure_config = {
             'num_lanes': lane_count,
             'has_bus_lane': bus_lane,
@@ -219,11 +218,9 @@ def test_custom_configuration(
             'green_ratio': 0.6
         }
         
-        # Utworzenie i uruchomienie symulacji
         sim = simulation_module.create_simulation_with_parameters(params, infrastructure_config)
         sim_results = sim.run_simulation(save_data=True, data_filename=config_id)
         
-        # Sprawdzenie czy symulacja się powiodła
         if not sim_results or sim_results.get('completed_vehicles', 0) == 0:
             print("Symulacja zakończona niepowodzeniem - brak ukończonych pojazdów")
             return {}
@@ -276,7 +273,7 @@ def test_direct_parameter_approach(simulation_module) -> Dict[str, Any]:
     
     sim1 = simulation_module.create_simulation_with_parameters(params, minimal_params)
     sim1_raw = sim1.run_simulation()
-    sim1._calculate_final_statistics()  # Oblicz statystyki
+    sim1._calculate_final_statistics()
     results1 = sim1.statistics
     print(f"Wynik: {results1['avg_travel_time']:.1f}s średni czas, {results1['avg_speed']:.1f} km/h")
     
@@ -291,7 +288,7 @@ def test_direct_parameter_approach(simulation_module) -> Dict[str, Any]:
     
     sim2 = simulation_module.create_simulation_with_parameters(params, maximal_params)
     sim2_raw = sim2.run_simulation()
-    sim2._calculate_final_statistics()  # Oblicz statystyki
+    sim2._calculate_final_statistics()
     results2 = sim2.statistics
     print(f"Wynik: {results2['avg_travel_time']:.1f}s średni czas, {results2['avg_speed']:.1f} km/h")
     
@@ -304,7 +301,7 @@ def test_direct_parameter_approach(simulation_module) -> Dict[str, Any]:
     return {'minimal': results1, 'maximal': results2}
 
 
-def _analyze_efficiency_metrics(results_a: Dict, results_b: Dict, results_c: Dict) -> Dict[str, float]:
+def analyze_efficiency_metrics(results_a: Dict, results_b: Dict, results_c: Dict) -> Dict[str, float]:
     """Analizuje metryki efektywności między scenariuszami"""
     efficiency_metrics = {}
     
@@ -332,7 +329,7 @@ def _analyze_efficiency_metrics(results_a: Dict, results_b: Dict, results_c: Dic
     return efficiency_metrics
 
 
-def _display_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, efficiency_metrics: Dict):
+def display_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, efficiency_metrics: Dict):
     """Wyświetla wyniki analizy efektywności"""
     print("\n" + "="*60)
     print("ANALIZA EFEKTYWNOŚCI BUSPASA")
@@ -413,10 +410,10 @@ def _display_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dic
     df = pd.DataFrame(comparison_data)
     print(df.to_string(index=False))
     
-    _display_conclusions(efficiency_metrics)
+    display_conclusions(efficiency_metrics)
 
 
-def _display_conclusions(efficiency_metrics: Dict):
+def display_conclusions(efficiency_metrics: Dict):
     """Wyświetla wnioski z analizy"""
     print("\n" + "="*60)
     print("WNIOSKI Z ANALIZY")
@@ -440,7 +437,7 @@ def _display_conclusions(efficiency_metrics: Dict):
         print("Buspas nie redukuje korków")
 
 
-def _save_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, efficiency_metrics: Dict) -> pd.DataFrame:
+def save_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, efficiency_metrics: Dict) -> pd.DataFrame:
     """Zapisuje wyniki efektywności do plików CSV"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
@@ -507,7 +504,7 @@ def _save_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, 
     return df
 
 
-def _display_comparison_results(results: Dict[str, Any], params, simulation_module):
+def display_comparison_results(results: Dict[str, Any], params, simulation_module):
     """Wyświetla analizę porównawczą wyników"""
     print("\n" + "="*60)
     print("PODSUMOWANIE WYNIKÓW")
@@ -564,12 +561,12 @@ def _display_comparison_results(results: Dict[str, Any], params, simulation_modu
         
         print(f"{variant}: {desc}")
     
-    _display_rankings(results)
-    _display_hypotheses_verification(results)
-    _display_recommendations(results)
+    display_rankings(results)
+    display_hypotheses_verification(results)
+    display_recommendations(results)
 
 
-def _display_rankings(results: Dict[str, Any]):
+def display_rankings(results: Dict[str, Any]):
     """Wyświetla rankingi wariantów"""
     print("\n" + "="*60)
     print("RANKING WARIANTÓW")
@@ -615,7 +612,7 @@ def _display_rankings(results: Dict[str, Any]):
         print(f"   {i}. Wariant {variant}: {total_entered} wjechało, {completed} ukończyło")
 
 
-def _display_hypotheses_verification(results: Dict[str, Any]):
+def display_hypotheses_verification(results: Dict[str, Any]):
     """Wyświetla weryfikację hipotez badawczych"""
     print("\n" + "="*60)
     print("WERYFIKACJA HIPOTEZ BADAWCZYCH")
@@ -664,7 +661,7 @@ def _display_hypotheses_verification(results: Dict[str, Any]):
     lanes = 0
     
     for variant, data in results.items():
-        if variant in ['A', 'D'] and data['bus_efficiency'] == 0:  # Tylko warianty bez buspasa
+        if variant in ['A', 'D'] and data['bus_efficiency'] == 0:
             if variant == 'A': 
                 lanes = 3
             elif variant == 'D': 
@@ -725,7 +722,6 @@ def _display_hypotheses_verification(results: Dict[str, Any]):
     
     print("\n3. Hipoteza: Wskaźnik ukończenia podróży jest kluczowy - analiza tylko standardowych wariantów.")
     
-    # Znajdź warianty z najlepszym i najgorszym wskaźnikiem ukończenia wśród standardowych
     standard_completion_rates = [(k, v.get('completion_rate', 100.0), v.get('vehicles_in_queue', 0), v.get('vehicles_in_traffic', 0)) 
                                 for k, v in results.items() if k in ['A', 'B', 'C', 'D']]
     standard_completion_rates.sort(key=lambda x: x[1], reverse=True)
@@ -750,7 +746,7 @@ def _display_hypotheses_verification(results: Dict[str, Any]):
                 print(f"   • {variant}: {queue_ratio:.0f}% problem kolejki, {traffic_ratio:.0f}% problem korków")
 
 
-def _display_recommendations(results: Dict[str, Any]):
+def display_recommendations(results: Dict[str, Any]):
     """Wyświetla rekomendacje"""
     print("\n" + "="*60)
     print("REKOMENDACJE")
@@ -774,7 +770,6 @@ def _display_recommendations(results: Dict[str, Any]):
     print(f"NAJWYŻSZY WSKAŹNIK UKOŃCZENIA: Wariant {best_completion[0]} ({best_completion[1].get('completion_rate', 100.0):.1f}%)")
     print(f"NAJWYŻSZA PRZEPUSTOWOŚĆ: Wariant {best_throughput[0]} ({best_throughput[1].get('total_entered', best_throughput[1]['total_vehicles'])} pojazdów)")
     
-    # Analiza kompromisowa - znajdź wariant w top 3 w większości kategorii
     print(f"\nANALIZA KOMPROMISOWA:")
     top3_travel = [x[0] for x in travel_time_ranking[:3]]
     top3_completion = [x[0] for x in completion_ranking[:3]]

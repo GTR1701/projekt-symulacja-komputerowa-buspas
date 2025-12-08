@@ -41,12 +41,10 @@ class TrafficSimulation:
         self.config = config
         self.params = params
         self.current_time = 0.0
-        
         self.infrastructure_config = infrastructure_config
         
-        infra_params = self._get_infrastructure_parameters()
-        
-        self._setup_infrastructure(**infra_params)
+        infra_params = self.get_infrastructure_parameters()
+        self.setup_infrastructure(**infra_params)
         
         self.vehicles: List[Vehicle] = []
         self.completed_vehicles: List[Vehicle] = []
@@ -74,7 +72,7 @@ class TrafficSimulation:
         
         self.next_vehicle_id = 1
         
-    def _get_infrastructure_parameters(self) -> Dict[str, Any]:
+    def get_infrastructure_parameters(self) -> Dict[str, Any]:
         """Zwraca parametry infrastruktury na podstawie konfiguracji lub wariantu"""
         if self.infrastructure_config is not None:
             return {
@@ -119,7 +117,7 @@ class TrafficSimulation:
         else:
             return f"{self.num_lanes}P, {len(self.traffic_lights)}S"
         
-    def _setup_infrastructure(self, num_lanes: int, has_bus_lane: bool, 
+    def setup_infrastructure(self, num_lanes: int, has_bus_lane: bool, 
                              bus_lane_capacity: int, traffic_light_positions: List[float],
                              green_ratio: float = 0.6, cycle_duration: float = None):
         """Konfiguracja infrastruktury na podstawie przekazanych parametrów"""
@@ -140,30 +138,30 @@ class TrafficSimulation:
             for pos in traffic_light_positions
         ]
     
-    def _generate_traffic_intensity(self):
+    def generate_traffic_intensity(self):
         """Generuje natężenie ruchu zgodnie z rozkładem Poissona"""
         mean_intensity = np.mean(self.params.traffic_intensity_range)
         return np.random.poisson(mean_intensity / SECONDS_PER_HOUR)
     
-    def _should_vehicle_turn(self) -> bool:
+    def should_vehicle_turn(self) -> bool:
         """Określa czy pojazd skręci w boczną drogę"""
         turning_rate = random.uniform(*self.params.turning_percentage_range)
         return random.random() < turning_rate
     
-    def _assign_turn_position(self) -> float:
+    def assign_turn_position(self) -> float:
         """Przypisuje pozycję skrętu pojazdu"""
         positions = self.params.side_road_positions or DEFAULT_SIDE_ROAD_POSITIONS
         return random.choice(positions)
     
-    def _process_vehicle_queue(self, max_capacity: int):
+    def process_vehicle_queue(self, max_capacity: int):
         """Przetwarza kolejkę pojazdów oczekujących na wjazd"""
         vehicles_to_remove = []
         
         for vehicle in self.vehicle_queue:
-            if len(self.vehicles) < max_capacity:
+            if len(self.vehicles) < max_capacity and self.can_enter_road_segment(vehicle.lane):
                 vehicle.entry_time = self.current_time
                 self.vehicles.append(vehicle)
-                self._record_vehicle_data(vehicle, 'entered_from_queue')
+                self.record_vehicle_data(vehicle, 'entered_from_queue')
                 vehicles_to_remove.append(vehicle)
             else:
                 break
@@ -171,29 +169,24 @@ class TrafficSimulation:
         for vehicle in vehicles_to_remove:
             self.vehicle_queue.remove(vehicle)
     
-    def _generate_vehicle(self) -> Vehicle:
+    def generate_vehicle(self) -> Vehicle:
         """Generuje nowy pojazd"""
         vehicle_type = (VehicleType.PRIVILEGED 
                        if random.random() < self.params.privileged_percentage 
                        else VehicleType.REGULAR)
         
-        will_turn = self._should_vehicle_turn()
-        turn_position = self._assign_turn_position() if will_turn else None
+        will_turn = self.should_vehicle_turn()
+        turn_position = self.assign_turn_position() if will_turn else None
         
-        # Logika przypisywania pasa
         if vehicle_type == VehicleType.PRIVILEGED and self.has_bus_lane:
-            # Sprawdź obłożenie buspasa
             bus_lane_vehicles = [v for v in self.vehicles if v.lane == -1]
-            bus_lane_capacity_km = self.bus_lane_capacity * self.params.road_length
             
-            # Jeśli buspas nie jest przepełniony, użyj buspasa
-            if len(bus_lane_vehicles) < bus_lane_capacity_km:
+            if len(bus_lane_vehicles) < self.bus_lane_capacity:
                 lane = -1
             elif self.num_lanes > 0:
-                # Buspas przepełniony, użyj pasa regularnego
                 lane = random.randint(0, self.num_lanes - 1)
             else:
-                raise ValueError(f"BŁĄD: Buspas przepełniony ({len(bus_lane_vehicles)}/{bus_lane_capacity_km}) i brak pasów regularnych")
+                raise ValueError(f"BŁĄD: Buspas przepełniony ({len(bus_lane_vehicles)}/{self.bus_lane_capacity}) i brak pasów regularnych")
         elif self.num_lanes > 0:
             lane = random.randint(0, self.num_lanes - 1)
         else:
@@ -214,7 +207,7 @@ class TrafficSimulation:
         self.next_vehicle_id += 1
         return vehicle
     
-    def _update_traffic_lights(self):
+    def update_traffic_lights(self):
         """Aktualizuje stan sygnalizacji świetlnej"""
         for light in self.traffic_lights:
             time_in_phase = self.current_time - light.phase_start_time
@@ -226,7 +219,7 @@ class TrafficSimulation:
                 light.current_phase = "green"
                 light.phase_start_time = self.current_time
     
-    def _calculate_vehicle_speed(self, vehicle: Vehicle) -> float:
+    def calculate_vehicle_speed(self, vehicle: Vehicle) -> float:
         """Oblicza prędkość pojazdu na podstawie warunków ruchu"""
         base_speed = BASE_VEHICLE_SPEED
         
@@ -245,7 +238,23 @@ class TrafficSimulation:
         
         return base_speed * density_factor
     
-    def _collect_simulation_data(self):
+    def can_enter_road_segment(self, lane: int) -> bool:
+        """Sprawdza czy pojazd może wjechać na początkowy segment drogi"""
+        if not self.traffic_lights:
+            first_segment_end = self.params.road_length
+        else:
+            first_segment_end = min(light.position for light in self.traffic_lights)
+        
+        vehicles_in_first_segment = [v for v in self.vehicles 
+                                   if v.lane == lane 
+                                   and v.current_position <= first_segment_end]
+        
+        required_space = len(vehicles_in_first_segment) * VEHICLE_TOTAL_SPACE
+        available_space = first_segment_end
+        
+        return required_space + VEHICLE_TOTAL_SPACE <= available_space
+    
+    def collect_simulation_data(self):
         """Zbiera szczegółowe dane z aktualnego stanu symulacji"""
         self.simulation_data['timesteps'].append(self.current_time)
         self.simulation_data['vehicles_in_motion'].append(len(self.vehicles))
@@ -256,7 +265,7 @@ class TrafficSimulation:
         else:
             self.simulation_data['average_speeds'].append(0.0)
         
-        self.simulation_data['jam_lengths'].append(self._calculate_traffic_jam_length())
+        self.simulation_data['jam_lengths'].append(self.calculate_traffic_jam_length())
         
         light_states = [light.current_phase for light in self.traffic_lights]
         self.simulation_data['light_states'].append(light_states)
@@ -269,7 +278,7 @@ class TrafficSimulation:
         
         self.simulation_data['vehicles_in_queue'].append(len(self.vehicle_queue))
     
-    def _record_vehicle_data(self, vehicle: Vehicle, action: str):
+    def record_vehicle_data(self, vehicle: Vehicle, action: str):
         """Zapisuje szczegółowe dane o pojeździe"""
         vehicle_record = {
             'vehicle_id': vehicle.id,
@@ -286,36 +295,36 @@ class TrafficSimulation:
         }
         self.simulation_data['vehicle_details'].append(vehicle_record)
     
-    def _move_vehicles(self):
+    def move_vehicles(self):
         """Przesuwa pojazdy i aktualizuje ich stan"""
         vehicles_to_remove = []
         
         for vehicle in self.vehicles:
-            vehicle.speed = self._calculate_vehicle_speed(vehicle)
+            vehicle.speed = self.calculate_vehicle_speed(vehicle)
             
             if vehicle.speed == 0:
                 vehicle.waiting_time += self.params.time_step
             
-            distance = vehicle.speed * (self.params.time_step / 3600)  # km
+            distance = vehicle.speed * (self.params.time_step / 3600)
             vehicle.current_position += distance
             
             if (vehicle.will_turn and vehicle.turn_position and 
                 vehicle.current_position >= vehicle.turn_position):
                 vehicle.travel_time = self.current_time - vehicle.entry_time
-                self._record_vehicle_data(vehicle, 'turned')
+                self.record_vehicle_data(vehicle, 'turned')
                 self.completed_vehicles.append(vehicle)
                 vehicles_to_remove.append(vehicle)
             
             elif vehicle.current_position >= self.params.road_length:
                 vehicle.travel_time = self.current_time - vehicle.entry_time
-                self._record_vehicle_data(vehicle, 'exited')
+                self.record_vehicle_data(vehicle, 'exited')
                 self.completed_vehicles.append(vehicle)
                 vehicles_to_remove.append(vehicle)
         
         for vehicle in vehicles_to_remove:
             self.vehicles.remove(vehicle)
     
-    def _calculate_traffic_jam_length(self) -> float:
+    def calculate_traffic_jam_length(self) -> float:
         """Oblicza długość korka (pojazdy o prędkości < 10 km/h)"""
         slow_vehicles = [v for v in self.vehicles if v.speed < SLOW_TRAFFIC_THRESHOLD]
         if not slow_vehicles:
@@ -339,7 +348,7 @@ class TrafficSimulation:
         
         return max(max_jam_length, current_jam_length)
     
-    def _calculate_bus_efficiency(self) -> float:
+    def calculate_bus_efficiency(self) -> float:
         """Oblicza efektywność buspasa porównując z podobnym scenariuszem bez buspasa"""
         if not self.has_bus_lane:
             return 0.0
@@ -375,33 +384,35 @@ class TrafficSimulation:
         if self.num_lanes == 0 and self.has_bus_lane:
             max_capacity = self.bus_lane_capacity
         
-        self._process_vehicle_queue(max_capacity)
-        vehicles_to_generate = self._generate_traffic_intensity()
+        self.process_vehicle_queue(max_capacity)
+        vehicles_to_generate = self.generate_traffic_intensity()
         for _ in range(int(vehicles_to_generate)):
             if len(self.vehicles) < max_capacity:
                 try:
-                    new_vehicle = self._generate_vehicle()
-                    self.vehicles.append(new_vehicle)
-                    self._record_vehicle_data(new_vehicle, 'entered')
+                    new_vehicle = self.generate_vehicle()
+                    
+                    if self.can_enter_road_segment(new_vehicle.lane):
+                        self.vehicles.append(new_vehicle)
+                        self.record_vehicle_data(new_vehicle, 'entered')
+                    else:
+                        self.vehicle_queue.append(new_vehicle)
+                        self.record_vehicle_data(new_vehicle, 'queued')
                 except ValueError as e:
-                    # Logowanie błędu infrastruktury bez przerywania symulacji
-                    print(f"UWAGA: {e}")
-                    break  # Przerwij generowanie pojazdów w tym kroku
+                    break
             else:
-                # Pojemność przekroczona - dodaj pojazd do kolejki
                 try:
-                    new_vehicle = self._generate_vehicle()
+                    new_vehicle = self.generate_vehicle()
                     self.vehicle_queue.append(new_vehicle)
-                    self._record_vehicle_data(new_vehicle, 'queued')
+                    self.record_vehicle_data(new_vehicle, 'queued')
                 except ValueError as e:
                     print(f"UWAGA: {e}")
                     break
         
-        self._update_traffic_lights()
+        self.update_traffic_lights()
         
-        self._move_vehicles()
+        self.move_vehicles()
         
-        self._collect_simulation_data()
+        self.collect_simulation_data()
         
         self.current_time += self.params.time_step
 
@@ -419,7 +430,6 @@ class TrafficSimulation:
         for step in range(steps):
             self.step()
             
-            # Raportowanie postępu co 10% symulacji
             if step % (steps // 10) == 0:
                 progress = (step / steps) * 100
                 queue_info = f" | Kolejka: {len(self.vehicle_queue)}" if self.vehicle_queue else ""
@@ -432,7 +442,6 @@ class TrafficSimulation:
         execution_time = time.time() - start_time
         print(f"Symulacja zakończona w {execution_time:.2f} sekund")
         
-        # Informacja o pojazdach w kolejce
         if len(self.vehicle_queue) > 0:
             print(f"UWAGA: {len(self.vehicle_queue)} pojazdów pozostało w kolejce (nie mogły wjechać na drogę)")
             print(f"   Pojazdy w kolejce wygenerowane w czasie: {[v.entry_time for v in self.vehicle_queue[:5]]}{'...' if len(self.vehicle_queue) > 5 else ''}")
@@ -458,9 +467,8 @@ class TrafficSimulation:
         
         for vehicle in self.completed_vehicles:
             if vehicle.travel_time > 0:
-                # Prędkość średnia
                 distance = vehicle.turn_position if vehicle.will_turn and vehicle.turn_position else self.params.road_length
-                avg_speed = (distance / vehicle.travel_time) * 3600  # km/h
+                avg_speed = (distance / vehicle.travel_time) * 3600
                 speeds.append(avg_speed)
         
         self.statistics = {
@@ -468,8 +476,8 @@ class TrafficSimulation:
             'avg_travel_time': np.mean(travel_times),
             'avg_speed': np.mean(speeds) if speeds else 0.0,
             'avg_waiting_time': np.mean(waiting_times),
-            'traffic_jam_length': self._calculate_traffic_jam_length(),
-            'bus_efficiency': self._calculate_bus_efficiency()
+            'traffic_jam_length': self.calculate_traffic_jam_length(),
+            'bus_efficiency': self.calculate_bus_efficiency()
         }
 
     def save_simulation_data_to_csv(self, base_filename: str | None = None):
@@ -478,12 +486,10 @@ class TrafficSimulation:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             base_filename = f"simulation_raw_{timestamp}"
         
-        # Utwórz folder na dane jeśli nie istnieje
         data_dir = "simulation_data"
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
         
-        # 1. Dane czasowe symulacji (surowe)
         timeseries_data = pd.DataFrame({
             'timestamp': self.simulation_data['timesteps'],
             'vehicles_in_motion': self.simulation_data['vehicles_in_motion'],
@@ -496,14 +502,12 @@ class TrafficSimulation:
         timeseries_data.to_csv(timeseries_file, index=False)
         print(f"Zapisano dane czasowe do: {timeseries_file}")
         
-        # 2. Szczegółowe dane o pojazdach (surowe)
         if self.simulation_data['vehicle_details']:
             vehicle_data = pd.DataFrame(self.simulation_data['vehicle_details'])
             vehicle_file = os.path.join(data_dir, f"{base_filename}_vehicles.csv")
             vehicle_data.to_csv(vehicle_file, index=False)
             print(f"Zapisano dane o pojazdach do: {vehicle_file}")
         
-        # 3. Konfiguracja infrastruktury (metadane)
         config_data = pd.DataFrame([{
             'simulation_id': base_filename,
             'num_lanes': self.num_lanes,
@@ -524,8 +528,7 @@ class TrafficSimulation:
         config_data.to_csv(config_file, index=False)
         print(f"Zapisano konfigurację do: {config_file}")
         
-        # 4. Pojemność i wykorzystanie pasów
-        lane_utilization = self._calculate_lane_utilization()
+        lane_utilization = self.calculate_lane_utilization()
         if lane_utilization:
             lane_data_rows = []
             
@@ -561,7 +564,6 @@ class TrafficSimulation:
                 lane_df.to_csv(lane_file, index=False)
                 print(f"Zapisano pojemność pasów do: {lane_file}")
         
-        # 5. Stan sygnalizacji (surowe dane)
         if self.simulation_data['light_states'] and any(self.simulation_data['light_states']):
             lights_data = []
             for i, states in enumerate(self.simulation_data['light_states']):
@@ -581,14 +583,13 @@ class TrafficSimulation:
         
         return data_dir
     
-    def _calculate_lane_utilization(self) -> Dict[str, Any]:
+    def calculate_lane_utilization(self) -> Dict[str, Any]:
         """Oblicza rzeczywiste wykorzystanie każdego pasa na podstawie danych o pojazdach"""
         if not self.simulation_data['vehicle_details']:
             return {}
             
         vehicle_df = pd.DataFrame(self.simulation_data['vehicle_details'])
         
-        # Filtruj tylko pojazdy które wjechały do symulacji (włącznie z kolejki)
         entered_vehicles = vehicle_df[vehicle_df['action'].isin(['entered', 'entered_from_queue'])]
         
         if len(entered_vehicles) == 0:
@@ -596,14 +597,12 @@ class TrafficSimulation:
         
         lane_stats = {}
         
-        # Pasy regularne (0, 1, 2, ...) - uwzględnij WSZYSTKIE pasy, nawet puste
         for lane in range(self.num_lanes):
             lane_vehicles = entered_vehicles[entered_vehicles['lane'] == lane]
             vehicle_count = len(lane_vehicles)
             
             actual_capacity_per_km = vehicle_count / self.params.road_length if self.params.road_length > 0 else 0
             
-            # Procent wykorzystania względem teoretycznej pojemności
             utilization_percent = (actual_capacity_per_km / self.params.lane_capacity * 100) if self.params.lane_capacity > 0 else 0
             
             lane_stats[f'lane_{lane}'] = {
@@ -614,7 +613,6 @@ class TrafficSimulation:
                 'lane_type': 'regular'
             }
         
-        # Buspas (lane = -1)
         if self.has_bus_lane:
             bus_lane_vehicles = entered_vehicles[entered_vehicles['lane'] == -1]
             bus_count = len(bus_lane_vehicles)
@@ -631,7 +629,7 @@ class TrafficSimulation:
             }
         
         total_vehicles = len(self.completed_vehicles)
-        total_regular_lanes = self.num_lanes  # Używamy rzeczywistej liczby pasów regularnych
+        total_regular_lanes = self.num_lanes
         
         if total_regular_lanes > 0:
             regular_lane_vehicles = len(entered_vehicles[entered_vehicles['lane'] >= 0]) if self.has_bus_lane else total_vehicles
