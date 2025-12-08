@@ -624,7 +624,8 @@ class TrafficSimulation:
         total_regular_lanes = len(regular_lanes)
         
         if total_regular_lanes > 0:
-            avg_vehicles_per_regular_lane = total_vehicles / total_regular_lanes if not self.has_bus_lane else len(entered_vehicles[entered_vehicles['lane'] >= 0]) / total_regular_lanes
+            regular_lane_vehicles = len(entered_vehicles[entered_vehicles['lane'] >= 0]) if self.has_bus_lane else total_vehicles
+            avg_vehicles_per_regular_lane = regular_lane_vehicles / total_regular_lanes
             avg_capacity_per_regular_lane = avg_vehicles_per_regular_lane / self.params.road_length if self.params.road_length > 0 else 0
             avg_utilization_regular = (avg_capacity_per_regular_lane / self.params.lane_capacity * 100) if self.params.lane_capacity > 0 else 0
         else:
