@@ -180,8 +180,20 @@ class TrafficSimulation:
         will_turn = self._should_vehicle_turn()
         turn_position = self._assign_turn_position() if will_turn else None
         
+        # Logika przypisywania pasa
         if vehicle_type == VehicleType.PRIVILEGED and self.has_bus_lane:
-            lane = -1
+            # Sprawdź obłożenie buspasa
+            bus_lane_vehicles = [v for v in self.vehicles if v.lane == -1]
+            bus_lane_capacity_km = self.bus_lane_capacity * self.params.road_length
+            
+            # Jeśli buspas nie jest przepełniony, użyj buspasa
+            if len(bus_lane_vehicles) < bus_lane_capacity_km:
+                lane = -1
+            elif self.num_lanes > 0:
+                # Buspas przepełniony, użyj pasa regularnego
+                lane = random.randint(0, self.num_lanes - 1)
+            else:
+                raise ValueError(f"BŁĄD: Buspas przepełniony ({len(bus_lane_vehicles)}/{bus_lane_capacity_km}) i brak pasów regularnych")
         elif self.num_lanes > 0:
             lane = random.randint(0, self.num_lanes - 1)
         else:
@@ -576,18 +588,16 @@ class TrafficSimulation:
             
         vehicle_df = pd.DataFrame(self.simulation_data['vehicle_details'])
         
-        # Filtruj tylko pojazdy które wjechały do symulacji
-        entered_vehicles = vehicle_df[vehicle_df['action'] == 'entered']
+        # Filtruj tylko pojazdy które wjechały do symulacji (włącznie z kolejki)
+        entered_vehicles = vehicle_df[vehicle_df['action'].isin(['entered', 'entered_from_queue'])]
         
         if len(entered_vehicles) == 0:
             return {}
         
         lane_stats = {}
         
-        # Pasy regularne (0, 1, 2, ...)
-        regular_lanes = [lane for lane in entered_vehicles['lane'].unique() if lane >= 0]
-        
-        for lane in regular_lanes:
+        # Pasy regularne (0, 1, 2, ...) - uwzględnij WSZYSTKIE pasy, nawet puste
+        for lane in range(self.num_lanes):
             lane_vehicles = entered_vehicles[entered_vehicles['lane'] == lane]
             vehicle_count = len(lane_vehicles)
             
@@ -621,7 +631,7 @@ class TrafficSimulation:
             }
         
         total_vehicles = len(self.completed_vehicles)
-        total_regular_lanes = len(regular_lanes)
+        total_regular_lanes = self.num_lanes  # Używamy rzeczywistej liczby pasów regularnych
         
         if total_regular_lanes > 0:
             regular_lane_vehicles = len(entered_vehicles[entered_vehicles['lane'] >= 0]) if self.has_bus_lane else total_vehicles

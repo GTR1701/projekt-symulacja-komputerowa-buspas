@@ -160,7 +160,7 @@ def main(reruns: int = None, base_seed: int = 42):
                 traffic_light_positions = []
                 
             custom_params = {
-                'num_lanes': lane_count + (1 if has_bus_lane else 0),
+                'num_lanes': lane_count,
                 'has_bus_lane': has_bus_lane,
                 'bus_lane_capacity': params.lane_capacity,
                 'traffic_light_positions': traffic_light_positions,
