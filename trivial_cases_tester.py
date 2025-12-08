@@ -405,9 +405,17 @@ class AllBusTester:
         Returns:
             Słownik ze statystykami symulacji
         """
+        # Oblicz całkowitą liczbę wygenerowanych pojazdów
+        # Wliczamy: ukończone + nadal w ruchu + w kolejce
+        total_generated_vehicles = len(sim.completed_vehicles) + len(sim.vehicles) + len(sim.vehicle_queue)
+        
+        # Jeśli nie ma ukończonych pojazdów, zwróć podstawowe statystyki
         if not sim.completed_vehicles:
             return {
-                'total_vehicles': 0,
+                'total_vehicles': total_generated_vehicles,
+                'completed_vehicles': 0,
+                'vehicles_in_motion': len(sim.vehicles),
+                'vehicles_in_queue': len(sim.vehicle_queue),
                 'avg_travel_time': 0.0,
                 'avg_speed': 0.0,
                 'avg_waiting_time': 0.0,
@@ -415,7 +423,8 @@ class AllBusTester:
                 'bus_efficiency': 0.0
             }
         
-        travel_times = [v.travel_time for v in sim.completed_vehicles]
+        # Oblicz statystyki dla ukończonych pojazdów
+        travel_times = [v.travel_time for v in sim.completed_vehicles if v.travel_time > 0]
         waiting_times = [v.waiting_time for v in sim.completed_vehicles]
         speeds = []
         
@@ -445,11 +454,18 @@ class AllBusTester:
                     jammed_vehicles.append(vehicle)
             traffic_jam_length = len(jammed_vehicles) * 0.005  # m
         
+        # Informacja o pojazdach które nie ukończyły przejazdu
+        if len(sim.vehicles) > 0 or len(sim.vehicle_queue) > 0:
+            print(f"      UWAGA: {len(sim.vehicles)} pojazdów nadal w ruchu, {len(sim.vehicle_queue)} w kolejce")
+        
         return {
-            'total_vehicles': len(sim.completed_vehicles),
-            'avg_travel_time': np.mean(travel_times),
+            'total_vehicles': total_generated_vehicles,
+            'completed_vehicles': len(sim.completed_vehicles),
+            'vehicles_in_motion': len(sim.vehicles),
+            'vehicles_in_queue': len(sim.vehicle_queue),
+            'avg_travel_time': np.mean(travel_times) if travel_times else 0.0,
             'avg_speed': np.mean(speeds) if speeds else 0.0,
-            'avg_waiting_time': np.mean(waiting_times),
+            'avg_waiting_time': np.mean(waiting_times) if waiting_times else 0.0,
             'traffic_jam_length': traffic_jam_length,
             'bus_efficiency': bus_efficiency
         }
@@ -526,43 +542,58 @@ class AllBusTester:
         if 'all_bus_scenarios' in self.results:
             for test_name, data in self.results['all_bus_scenarios'].items():
                 if 'error' not in data:
+                    vehicles_info = f"{data['total_vehicles']} ({data.get('completed_vehicles', '?')} ukończone)"
+                    description = data.get('config_description', '')
+                    if data.get('vehicles_in_queue', 0) > 0:
+                        description += f" | {data['vehicles_in_queue']} w kolejce"
+                    
                     summary_rows.append({
                         'test_type': 'ALL_BUS_SCENARIO',
                         'config': test_name,
                         'timestamp': self.test_timestamp,
                         'seed': self.base_seed,
-                        'vehicles': data['total_vehicles'],
+                        'vehicles': vehicles_info,
                         'time': round(data['avg_travel_time'], 1),
                         'speed': round(data['avg_speed'], 1),
-                        'description': data.get('config_description', '')
+                        'description': description
                         })
         
         if 'equivalence' in self.results:
             for test_name, data in self.results['equivalence'].items():
                 if 'error' not in data:
+                    vehicles_info = f"{data['total_vehicles']} ({data.get('completed_vehicles', '?')} ukończone)"
+                    description = f"{test_name} - test równoważności"
+                    if data.get('vehicles_in_queue', 0) > 0:
+                        description += f" | {data['vehicles_in_queue']} w kolejce"
+                    
                     summary_rows.append({
                         'test_type': 'EQUIVALENCE_TEST',
                         'config': test_name,
                         'timestamp': self.test_timestamp,
                         'seed': self.base_seed,
-                        'vehicles': data['total_vehicles'],
+                        'vehicles': vehicles_info,
                         'time': round(data['avg_travel_time'], 1),
                         'speed': round(data['avg_speed'], 1),
-                        'description': f"{test_name} - test równoważności"
+                        'description': description
                     })
         
         if 'high_traffic_cases' in self.results:
             for test_name, data in self.results['high_traffic_cases'].items():
                 if 'error' not in data:
+                    vehicles_info = f"{data['total_vehicles']} ({data.get('completed_vehicles', '?')} ukończone)"
+                    description = data.get('config_description', f"{test_name} - test wysokiego ruchu")
+                    if data.get('vehicles_in_queue', 0) > 0:
+                        description += f" | {data['vehicles_in_queue']} w kolejce"
+                    
                     summary_rows.append({
                         'test_type': 'HIGH_TRAFFIC_TEST',
                         'config': test_name,
                         'timestamp': self.test_timestamp,
                         'seed': self.base_seed,
-                        'vehicles': data['total_vehicles'],
+                        'vehicles': vehicles_info,
                         'time': round(data['avg_travel_time'], 1),
                         'speed': round(data['avg_speed'], 1),
-                        'description': data.get('config_description', f"{test_name} - test wysokiego ruchu")
+                        'description': description
                     })
         
         import pandas as pd
