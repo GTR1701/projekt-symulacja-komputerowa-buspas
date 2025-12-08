@@ -286,7 +286,7 @@ class AllBusTester:
             
         except Exception as e:
             print(f"      Błąd: {e}")
-            results['high_traffic_regular'] = {'error': str(e)}
+            results['high_traffic_regular_lane'] = {'error': str(e)}
         
         print(f"\n   1 buspas + wysoki ruch + 100% autobusów")
         random.seed(self.base_seed)
@@ -317,7 +317,7 @@ class AllBusTester:
             
         except Exception as e:
             print(f"      Błąd: {e}")
-            results['high_traffic_bus'] = {'error': str(e)}
+            results['high_traffic_bus_lane'] = {'error': str(e)}
         
         if ('high_traffic_regular_lane' in results and 'high_traffic_bus_lane' in results and
             'error' not in results['high_traffic_regular_lane'] and 'error' not in results['high_traffic_bus_lane']):
@@ -551,6 +551,20 @@ class AllBusTester:
                         'description': f"{test_name} - test równoważności"
                     })
         
+        if 'high_traffic_cases' in self.results:
+            for test_name, data in self.results['high_traffic_cases'].items():
+                if 'error' not in data:
+                    summary_rows.append({
+                        'test_type': 'HIGH_TRAFFIC_TEST',
+                        'config': test_name,
+                        'timestamp': self.test_timestamp,
+                        'seed': self.base_seed,
+                        'vehicles': data['total_vehicles'],
+                        'time': round(data['avg_travel_time'], 1),
+                        'speed': round(data['avg_speed'], 1),
+                        'description': data.get('config_description', f"{test_name} - test wysokiego ruchu")
+                    })
+        
         import pandas as pd
         df = pd.DataFrame(summary_rows)
         df.to_csv(filepath, index=False)
@@ -568,6 +582,8 @@ class AllBusTester:
         self.test_all_bus_scenarios()
         
         self.test_equivalence()
+        
+        # self.test_high_traffic_cases()  # wyłączone
         
         self.analyze_results()
         
