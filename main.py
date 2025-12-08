@@ -65,7 +65,7 @@ HEADER = """
 ║   ███████║   ██║   ██║ ╚═╝ ██║╚██████╔╝███████╗██║  ██║╚██████╗╚█████╔╝██║  ██║
 ║   ╚══════╝   ╚═╝   ╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚════╝ ╚═╝  ╚═╝
 ║                                                                               ║
-║                        PROBLEM JAGODZIŃSKIEGO                                 ║
+║                           PROBLEM JAGODZIŃSKI                                 ║
 ║                    System Symulacji Ruchu Drogowego                           ║
 ║                                                                               ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
@@ -99,7 +99,7 @@ HELP_TEXT = """
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  OPIS SYSTEMU:                                                              │
-│  System symulacji ruchu drogowego "Problem Jagodzińskiego" bada wpływ       │
+│  System symulacji ruchu drogowego "Problem Jagodziński" bada wpływ       │
 │  wprowadzenia buspasa na płynność ruchu drogowego w mieście.                │
 │                                                                             │
 │  DOSTĘPNE WARIANTY SYMULACJI:                                               │
