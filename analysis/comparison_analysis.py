@@ -210,10 +210,22 @@ def test_custom_configuration(
         print(f"   ID konfiguracji: {config_id}")
     
     try:
-        sim_results = simulation_module.run_simulation(params, save_csv=True, save_id=config_id)
+        # Utworzenie konfiguracji infrastruktury
+        infrastructure_config = {
+            'num_lanes': lane_count,
+            'has_bus_lane': bus_lane,
+            'bus_lane_capacity': 100 if bus_lane else 0,
+            'traffic_light_positions': [2.5],
+            'green_ratio': 0.6
+        }
         
-        if not sim_results or not sim_results.get('success', True):
-            print("Symulacja zakończona niepowodzeniem")
+        # Utworzenie i uruchomienie symulacji
+        sim = simulation_module.create_simulation_with_parameters(params, infrastructure_config)
+        sim_results = sim.run_simulation(save_data=True, data_filename=config_id)
+        
+        # Sprawdzenie czy symulacja się powiodła
+        if not sim_results or sim_results.get('completed_vehicles', 0) == 0:
+            print("Symulacja zakończona niepowodzeniem - brak ukończonych pojazdów")
             return {}
         
         data_dir = "simulation_data"
@@ -263,7 +275,9 @@ def test_direct_parameter_approach(simulation_module) -> Dict[str, Any]:
     }
     
     sim1 = simulation_module.create_simulation_with_parameters(params, minimal_params)
-    results1 = sim1.run_simulation()
+    sim1_raw = sim1.run_simulation()
+    sim1._calculate_final_statistics()  # Oblicz statystyki
+    results1 = sim1.statistics
     print(f"Wynik: {results1['avg_travel_time']:.1f}s średni czas, {results1['avg_speed']:.1f} km/h")
     
     print("\n--- Konfiguracja maksymalna ---")
@@ -276,7 +290,9 @@ def test_direct_parameter_approach(simulation_module) -> Dict[str, Any]:
     }
     
     sim2 = simulation_module.create_simulation_with_parameters(params, maximal_params)
-    results2 = sim2.run_simulation()
+    sim2_raw = sim2.run_simulation()
+    sim2._calculate_final_statistics()  # Oblicz statystyki
+    results2 = sim2.statistics
     print(f"Wynik: {results2['avg_travel_time']:.1f}s średni czas, {results2['avg_speed']:.1f} km/h")
     
     print(f"\nPorównanie:")
