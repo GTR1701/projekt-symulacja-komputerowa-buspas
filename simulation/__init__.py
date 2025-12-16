@@ -18,9 +18,11 @@ from .variant_configs import (
     create_simulation_with_parameters
 )
 from .constants import (
-    VEHICLE_LENGTH,
+    CAR_LENGTH,
+    BUS_LENGTH,
+    CAR_TOTAL_SPACE,
+    BUS_TOTAL_SPACE,
     VEHICLE_SPACING,
-    VEHICLE_TOTAL_SPACE,
     JAM_THRESHOLD_DISTANCE,
     DETECTION_DISTANCE,
     BASE_VEHICLE_SPEED,

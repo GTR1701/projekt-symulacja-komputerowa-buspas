@@ -13,8 +13,7 @@ def get_variant_a_parameters(params: SimulationParameters) -> Dict[str, Any]:
     return {
         'num_lanes': 3,
         'has_bus_lane': False,
-        'bus_lane_capacity': 0,
-        'traffic_light_positions': params.side_road_positions or [1.0, 2.5, 4.0],
+        'traffic_light_positions': params.side_road_positions or [0.5],
         'green_ratio': 0.6
     }
 
@@ -24,8 +23,7 @@ def get_variant_b_parameters(params: SimulationParameters) -> Dict[str, Any]:
     return {
         'num_lanes': 2,
         'has_bus_lane': True,
-        'bus_lane_capacity': params.lane_capacity,
-        'traffic_light_positions': params.side_road_positions or [1.0, 2.5, 4.0],
+        'traffic_light_positions': params.side_road_positions or [0.5],
         'green_ratio': 0.6
     }
 
@@ -35,8 +33,7 @@ def get_variant_c_parameters(params: SimulationParameters) -> Dict[str, Any]:
     return {
         'num_lanes': 3,
         'has_bus_lane': True,
-        'bus_lane_capacity': params.lane_capacity,
-        'traffic_light_positions': params.side_road_positions or [1.0, 2.5, 4.0],
+        'traffic_light_positions': params.side_road_positions or [0.5],
         'green_ratio': 0.6
     }
 
@@ -46,8 +43,7 @@ def get_variant_d_parameters(params: SimulationParameters) -> Dict[str, Any]:
     return {
         'num_lanes': 4,
         'has_bus_lane': False,
-        'bus_lane_capacity': 0,
-        'traffic_light_positions': params.side_road_positions or [1.0, 2.5, 4.0],
+        'traffic_light_positions': params.side_road_positions or [0.5],
         'green_ratio': 0.6
     }
 
@@ -57,8 +53,7 @@ def get_default_parameters(params: SimulationParameters) -> Dict[str, Any]:
     return {
         'num_lanes': 2,
         'has_bus_lane': False,
-        'bus_lane_capacity': 0,
-        'traffic_light_positions': params.side_road_positions or [1.0, 2.5, 4.0],
+        'traffic_light_positions': params.side_road_positions or [0.5],
         'green_ratio': 0.6
     }
 
@@ -126,8 +121,7 @@ def create_simulation_with_parameters(params: SimulationParameters, infra_params
     config = InfrastructureConfig(
         num_lanes=infra_params.get('num_lanes', 2),
         has_bus_lane=infra_params.get('has_bus_lane', False),
-        bus_lane_capacity=infra_params.get('bus_lane_capacity', 0),
-        traffic_light_positions=infra_params.get('traffic_light_positions', [1.0, 2.5, 4.0]),
+        traffic_light_positions=infra_params.get('traffic_light_positions', [0.5]),
         traffic_light_green_ratio=infra_params.get('green_ratio', 0.6),
         description=f"Konfiguracja: {infra_params.get('num_lanes', 2)} pasów"
     )

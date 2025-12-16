@@ -21,7 +21,7 @@ class SimulationParameters:
     turning_percentage_range: Tuple[float, float] = (0.05, 0.20)
     privileged_percentage: float = 0.05
     
-    road_length: float = 5.0
+    road_length: float = 1.0
     lane_capacity: int = 75
     traffic_light_cycle: float = 67.5
     green_light_range: Tuple[float, float] = (45.0, 90.0)
@@ -33,4 +33,4 @@ class SimulationParameters:
     
     def __post_init__(self):
         if self.side_road_positions is None:
-            self.side_road_positions = [1.0, 2.5, 4.0]
+            self.side_road_positions = [0.5]

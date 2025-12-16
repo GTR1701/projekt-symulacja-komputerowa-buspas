@@ -161,7 +161,6 @@ def main(reruns: int = None, base_seed: int = 42):
             custom_params = {
                 'num_lanes': lane_count,
                 'has_bus_lane': has_bus_lane,
-                'bus_lane_capacity': params.lane_capacity,
                 'traffic_light_positions': traffic_light_positions,
                 'green_ratio': green_ratio,
                 'cycle_duration': cycle_duration

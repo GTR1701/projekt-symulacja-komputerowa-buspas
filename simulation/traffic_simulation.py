@@ -20,7 +20,8 @@ from .variant_configs import (
     get_default_parameters
 )
 from .constants import (
-    VEHICLE_TOTAL_SPACE,
+    CAR_TOTAL_SPACE,
+    BUS_TOTAL_SPACE,
     JAM_THRESHOLD_DISTANCE,
     DETECTION_DISTANCE,
     BASE_VEHICLE_SPEED,
@@ -78,7 +79,6 @@ class TrafficSimulation:
             return {
                 'num_lanes': self.infrastructure_config.num_lanes,
                 'has_bus_lane': self.infrastructure_config.has_bus_lane,
-                'bus_lane_capacity': self.infrastructure_config.bus_lane_capacity,
                 'traffic_light_positions': self.infrastructure_config.traffic_light_positions,
                 'green_ratio': self.infrastructure_config.traffic_light_green_ratio,
                 'cycle_duration': getattr(self.infrastructure_config, 'cycle_duration', None)
@@ -96,7 +96,7 @@ class TrafficSimulation:
         
         if self.has_bus_lane:
             description_parts.append(f"{self.num_lanes} pasy regularne + buspas")
-            description_parts.append(f"Pojemność buspasa: {self.bus_lane_capacity} pojazdy/km")
+            description_parts.append(f"Pojemność buspasa: {self.bus_lane_capacity} pojazdów")
         else:
             description_parts.append(f"{self.num_lanes} pasów regularnych")
         
@@ -116,14 +116,36 @@ class TrafficSimulation:
             return f"{self.num_lanes}P+Bus, {len(self.traffic_lights)}S"
         else:
             return f"{self.num_lanes}P, {len(self.traffic_lights)}S"
+    
+    def get_vehicle_space(self, vehicle: Vehicle) -> float:
+        """Zwraca przestrzeń zajmowaną przez pojazd na podstawie jego typu"""
+        if vehicle.vehicle_type == VehicleType.PRIVILEGED:
+            return BUS_TOTAL_SPACE
+        else:
+            return CAR_TOTAL_SPACE
+    
+    def calculate_bus_lane_capacity(self) -> int:
+        """Oblicza teoretyczną pojemność buspasa na podstawie długości drogi i wielkości autobusów"""
+        if not self.has_bus_lane:
+            return 0
+
+        available_length = self.params.road_length
+
+        theoretical_capacity = int(available_length / BUS_TOTAL_SPACE)
+        
+        return max(1, theoretical_capacity)
+    
+    @property
+    def bus_lane_capacity(self) -> int:
+        """Property zwracające dynamicznie obliczaną pojemność buspasa"""
+        return self.calculate_bus_lane_capacity()
         
     def setup_infrastructure(self, num_lanes: int, has_bus_lane: bool, 
-                             bus_lane_capacity: int, traffic_light_positions: List[float],
+                             traffic_light_positions: List[float],
                              green_ratio: float = 0.6, cycle_duration: float = None):
         """Konfiguracja infrastruktury na podstawie przekazanych parametrów"""
         self.num_lanes = num_lanes
         self.has_bus_lane = has_bus_lane
-        self.bus_lane_capacity = bus_lane_capacity
         
         actual_cycle = cycle_duration if cycle_duration is not None else self.params.traffic_light_cycle
             
@@ -158,7 +180,7 @@ class TrafficSimulation:
         vehicles_to_remove = []
         
         for vehicle in self.vehicle_queue:
-            if len(self.vehicles) < max_capacity and self.can_enter_road_segment(vehicle.lane):
+            if len(self.vehicles) < max_capacity and self.can_enter_road_segment(vehicle.lane, vehicle):
                 vehicle.entry_time = self.current_time
                 self.vehicles.append(vehicle)
                 self.record_vehicle_data(vehicle, 'entered_from_queue')
@@ -238,7 +260,7 @@ class TrafficSimulation:
         
         return base_speed * density_factor
     
-    def can_enter_road_segment(self, lane: int) -> bool:
+    def can_enter_road_segment(self, lane: int, new_vehicle: Vehicle = None) -> bool:
         """Sprawdza czy pojazd może wjechać na początkowy segment drogi"""
         if not self.traffic_lights:
             first_segment_end = self.params.road_length
@@ -249,10 +271,13 @@ class TrafficSimulation:
                                    if v.lane == lane 
                                    and v.current_position <= first_segment_end]
         
-        required_space = len(vehicles_in_first_segment) * VEHICLE_TOTAL_SPACE
+        required_space = sum(self.get_vehicle_space(v) for v in vehicles_in_first_segment)
+
+        new_vehicle_space = self.get_vehicle_space(new_vehicle) if new_vehicle else CAR_TOTAL_SPACE
+        
         available_space = first_segment_end
         
-        return required_space + VEHICLE_TOTAL_SPACE <= available_space
+        return required_space + new_vehicle_space <= available_space
     
     def collect_simulation_data(self):
         """Zbiera szczegółowe dane z aktualnego stanu symulacji"""
@@ -329,22 +354,26 @@ class TrafficSimulation:
         slow_vehicles = [v for v in self.vehicles if v.speed < SLOW_TRAFFIC_THRESHOLD]
         if not slow_vehicles:
             return 0.0
-        
-        positions = sorted([v.current_position for v in slow_vehicles])
+
+        vehicle_data = [(v.current_position, v) for v in slow_vehicles]
+        vehicle_data.sort(key=lambda x: x[0])
         
         max_jam_length = 0.0
         current_jam_length = 0.0
         
-        for i in range(len(positions)):
+        for i, (position, vehicle) in enumerate(vehicle_data):
+            vehicle_space = self.get_vehicle_space(vehicle)
+            
             if i == 0:
-                current_jam_length = VEHICLE_TOTAL_SPACE
+                current_jam_length = vehicle_space
             else:
-                gap = positions[i] - positions[i-1]
+                prev_position = vehicle_data[i-1][0]
+                gap = position - prev_position
                 if gap < JAM_THRESHOLD_DISTANCE:
-                    current_jam_length += VEHICLE_TOTAL_SPACE
+                    current_jam_length += vehicle_space
                 else:
                     max_jam_length = max(max_jam_length, current_jam_length)
-                    current_jam_length = VEHICLE_TOTAL_SPACE
+                    current_jam_length = vehicle_space
         
         return max(max_jam_length, current_jam_length)
     
@@ -391,7 +420,7 @@ class TrafficSimulation:
                 try:
                     new_vehicle = self.generate_vehicle()
                     
-                    if self.can_enter_road_segment(new_vehicle.lane):
+                    if self.can_enter_road_segment(new_vehicle.lane, new_vehicle):
                         self.vehicles.append(new_vehicle)
                         self.record_vehicle_data(new_vehicle, 'entered')
                     else:
