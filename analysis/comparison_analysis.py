@@ -620,73 +620,40 @@ def display_hypotheses_verification(results: Dict[str, Any]):
     
     print("\n1. Hipoteza: Buspas usprawnia ruch komunikacji miejskiej - porównanie wariantów z tą samą liczbą pasów.")
     
-    print("\n   PORÓWNANIE A vs B (3 pasy vs 2 pasy + buspas):")
-    if 'A' in results and 'B' in results:
-        a_data = results['A']
-        b_data = results['B'] 
-        
-        print(f"   • Przepustowość: A={a_data.get('total_entered', 0)} vs B={b_data.get('total_entered', 0)} pojazdów")
-        print(f"   • Ukończenie podróży: A={a_data.get('completion_rate', 0):.1f}% vs B={b_data.get('completion_rate', 0):.1f}%")
-        print(f"   • Długość korków: A={a_data.get('traffic_jam_length', 0):.2f} vs B={b_data.get('traffic_jam_length', 0):.2f} km")
-        print(f"   • Efektywność buspasa B: {b_data.get('bus_efficiency', 0):.1f}%")
-        
-        if a_data.get('total_entered', 0) > 0 and b_data.get('total_entered', 0) > 0:
-            throughput_change = ((b_data.get('total_entered', 0) - a_data.get('total_entered', 0)) / a_data.get('total_entered', 0) * 100)
-            completion_change = b_data.get('completion_rate', 0) - a_data.get('completion_rate', 0)
-            print(f"   Buspas wpływ: {throughput_change:+.1f}% przepustowości, {completion_change:+.1f}% ukończenia")
-    
-    print("\n   PORÓWNANIE A vs C (3 pasy vs 3 pasy + buspas):")
-    if 'A' in results and 'C' in results:
-        a_data = results['A']
-        c_data = results['C']
-        
-        print(f"   • Przepustowość: A={a_data.get('total_entered', 0)} vs C={c_data.get('total_entered', 0)} pojazdów")
-        print(f"   • Ukończenie podróży: A={a_data.get('completion_rate', 0):.1f}% vs C={c_data.get('completion_rate', 0):.1f}%")
-        print(f"   • Długość korków: A={a_data.get('traffic_jam_length', 0):.2f} vs C={c_data.get('traffic_jam_length', 0):.2f} km")
-        print(f"   • Efektywność buspasa C: {c_data.get('bus_efficiency', 0):.1f}%")
-        
-        if a_data.get('total_entered', 0) > 0 and c_data.get('total_entered', 0) > 0:
-            throughput_change = ((c_data.get('total_entered', 0) - a_data.get('total_entered', 0)) / a_data.get('total_entered', 0) * 100)
-            completion_change = c_data.get('completion_rate', 0) - a_data.get('completion_rate', 0)
-            print(f"   Buspas wpływ: {throughput_change:+.1f}% przepustowości, {completion_change:+.1f}% ukończenia")
-    
-    variants_with_bus = [(k, v) for k, v in results.items() if v['bus_efficiency'] > 0 and k in ['A', 'B', 'C', 'D']]
-    if variants_with_bus:
-        avg_bus_efficiency = sum(v['bus_efficiency'] for _, v in variants_with_bus) / len(variants_with_bus)
-        print(f"\n   Średnia efektywność buspasa (standardowe warianty): {avg_bus_efficiency:.1f}%")
-    
-    print("\n2. Hipoteza: Większa liczba pasów zwiększa przepustowość - porównanie wariantów bez buspasa.")
-    
-    no_bus_variants = []
-    lanes = 0
-    
+    with_bus = []
+    without_bus = []
     for variant, data in results.items():
-        if variant in ['A', 'D'] and data['bus_efficiency'] == 0:
-            if variant == 'A': 
-                lanes = 3
-            elif variant == 'D': 
-                lanes = 4
-            
-            total_entered = data.get('total_entered', data['total_vehicles'])
-            completion_rate = data.get('completion_rate', 0)
-            no_bus_variants.append((variant, lanes, total_entered, completion_rate))
+        if variant in ['B', 'C'] and data.get('bus_efficiency', 0) > 0:
+            with_bus.append(data.get('total_entered', None))
+
+        elif variant in ['A', 'D'] and data.get('bus_efficiency', 0) == 0:
+            without_bus.append(data.get('total_entered', None))
+
+        elif variant.startswith('CUSTOM_'):
+            if data.get('bus_efficiency', 0) > 0:
+                with_bus.append(data.get('total_entered', None))
+            else:
+                without_bus.append(data.get('total_entered', None))
     
-    if len(no_bus_variants) >= 2:
-        no_bus_variants.sort(key=lambda x: x[1])
-        print(f"   PORÓWNANIE WARIANTÓW BEZ BUSPASA:")
-        for variant, lanes, throughput, completion in no_bus_variants:
-            print(f"   • Wariant {variant}: {lanes} pasów → {throughput} pojazdów ({completion:.1f}% ukończenia)")
-        
-        if len(no_bus_variants) == 2:
-            var1, lanes1, through1, comp1 = no_bus_variants[0]
-            var2, lanes2, through2, comp2 = no_bus_variants[1] 
-            
-            throughput_change = ((through2 - through1) / through1 * 100) if through1 > 0 else 0
-            completion_change = comp2 - comp1
-            lanes_added = lanes2 - lanes1
-            
-            print(f"   {lanes_added} dodatkowy pas: {throughput_change:+.1f}% przepustowości, {completion_change:+.1f}% ukończenia")
+    with_bus = [x for x in with_bus if not None]
+    without_bus = [x for x in without_bus if not None]
+
+    print("\n 1.1 Test statystyczny t-studenta ")
+
+    if len(with_bus) < 2 or len(without_bus) < 2:
+        print("Za mało danych do testu statystycznego (min. 2 w każdej grupie)")
+        return None
     
+    t_stats, p_value = stats.ttest_ind(with_bus, without_bus, equal_var=False)
+
+    print(f"Wynik testu t-Studenta: t={t_stats:.3f}, p={p_value:.4f}")
+    if p_value < 0.05:
+        print("Różnica istotna statystycznie (p < 0.05)")
+        print("Mamy podstawy by twierdzić, że buspas nie ma wpływu na ruch")
+    else:
+        print("Brak istotnej różnicy (p >= 0.05)")
+        print("Nie mamy mocnych dowodów by twierdzić, że buspas wpływa na ruch")
+
     print("\n   PORÓWNANIE WPŁYWU BUSPASA PRZY RÓŻNEJ LICZBIE PASÓW:")
     bus_variants = []
     base_lanes = 0
@@ -719,9 +686,67 @@ def display_hypotheses_verification(results: Dict[str, Any]):
                 throughput_gain = ((throughput - comp_throughput) / comp_throughput * 100)
                 completion_gain = completion - comp_completion
                 print(f"     vs {comparison}: {throughput_gain:+.1f}% przepustowości, {completion_gain:+.1f}% ukończenia")
+
+
+    print("\n2. Hipoteza: Większa liczba pasów zwiększa przepustowość - porównanie wariantów bez buspasa.")
     
+    lanes_list = []
+    capacity_list = []
+
+    for variant, data in results.items():
+        lanes = None
+        has_bus_lane = False
+
+        # Niestandardowe scenariusze
+        if 'description' in data:
+            desc = data['description']
+            import re
+            m = re.search(r"(\d+) pas", desc)
+            if m:
+                lanes = int(m.group(1))
+            if 'buspas' in desc:
+                has_bus_lane = True
+
+        # Standardowe scenariusze
+        elif variant in ['A', 'B', 'C', 'D']:
+            if variant == 'A': lanes = 3
+            if variant == 'B': lanes = 2; has_bus_lane = True
+            if variant == 'C': lanes = 3; has_bus_lane = True
+            if variant == 'D': lanes = 4
+
+        # Szukaj w innym miejscu
+        if lanes is None:
+            lanes = data.get('num_lanes') or data.get('lane_count')
+            if isinstance(lanes, str):
+                try: lanes = int(lanes)
+                except: lanes = None
+        if data.get('has_bus_lane', False):
+            has_bus_lane = True
+
+        total_lanes = lanes + 1 if has_bus_lane and lanes is not None else lanes
+        output = data.get('total_entered', data.get('total_vehicles', None))
+
+        if total_lanes is not None and output is not None:
+            lanes_list.append(total_lanes)
+            capacity_list.append(output)
+
+    print("Test korelacji Perasona - domyślamy się, że zależność będzie liniowa\n")
+    if len(lanes_list) < 2 or len(capacity_list) < 2:
+        print("Za mało danych do testu korelacji (min. 2 obserwacje).")
+    else:
+        corr, p_value = pearsonr(lanes_list, capacity_list)
+        print(f"r={corr:.2f}, p={p_value:.4f}")
+        if p_value < 0.05:
+            print("Zależność istotna statystycznie")
+            print("Większa ilość pasów zwiększa przepustowość")
+        else:
+            print("Brak istotnej zależności")
+            print("Większa ilośc pasów nie zwiększa przepustowości")
+
+
     print("\n3. Hipoteza: Wskaźnik ukończenia podróży jest kluczowy - analiza tylko standardowych wariantów.")
     
+    # Znajdź warianty z najlepszym i najgorszym wskaźnikiem ukończenia wśród standardowych
     standard_completion_rates = [(k, v.get('completion_rate', 100.0), v.get('vehicles_in_queue', 0), v.get('vehicles_in_traffic', 0)) 
                                 for k, v in results.items() if k in ['A', 'B', 'C', 'D']]
     standard_completion_rates.sort(key=lambda x: x[1], reverse=True)
