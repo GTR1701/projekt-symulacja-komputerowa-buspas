@@ -6,6 +6,7 @@ from typing import Dict, Any
 from .simulation_parameters import SimulationParameters
 from .infrastructure_config import InfrastructureConfig
 from .simulation_parameters import RoadConfiguration
+from .traffic_simulation import TrafficSimulation
 
 
 def get_variant_a_parameters(params: SimulationParameters) -> Dict[str, Any]:
@@ -106,7 +107,7 @@ def get_variant_short_description(variant_name: str, params: SimulationParameter
         return f"{infra_params['num_lanes']}P"
 
 
-def create_simulation_with_parameters(params: SimulationParameters, infra_params: Dict[str, Any]) -> 'TrafficSimulation':
+def create_simulation_with_parameters(params: SimulationParameters, infra_params: Dict[str, Any]) -> TrafficSimulation:
     """Tworzy symulację z podanymi parametrami infrastruktury
     
     Args:
@@ -116,7 +117,6 @@ def create_simulation_with_parameters(params: SimulationParameters, infra_params
     Returns:
         Skonfigurowana instancja TrafficSimulation
     """
-    from .traffic_simulation import TrafficSimulation
     
     config = InfrastructureConfig(
         num_lanes=infra_params.get('num_lanes', 2),

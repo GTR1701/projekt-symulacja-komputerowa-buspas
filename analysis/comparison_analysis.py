@@ -106,7 +106,7 @@ def run_comparison_study(simulation_module) -> Dict[str, Any]:
     params = simulation_module.SimulationParameters()
     
     if any(any(glob.glob(os.path.join(data_dir, f"*{pattern}*_vehicles.csv")) for pattern in patterns) 
-           for patterns in standard_patterns.values()):
+    for patterns in standard_patterns.values()):
         print("\nSTANDARDOWE WARIANTY:")
         print("-" * 60)
         for variant in ['A', 'B', 'C', 'D']:
