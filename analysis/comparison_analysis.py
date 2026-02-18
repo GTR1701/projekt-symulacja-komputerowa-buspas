@@ -1,15 +1,19 @@
-"""
-Comparison analysis functions for different traffic scenarios
-"""
-
 import os
 import pandas as pd
 import time
 import glob
 from typing import Dict, Any
 from datetime import datetime
+from scipy.stats import stats, pearsonr
+import numpy as np
+import scipy as scipy
+from scipy import stats
+from statsmodels.stats.weightstats import ztest as ztest
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from .data_loader import load_raw_simulation_data
+from .data_loader import calculate_statistics_from_raw_data
 
 
 def compare_bus_lane_efficiency(save_csv: bool = True) -> Dict[str, Any]:
@@ -55,13 +59,13 @@ def compare_bus_lane_efficiency(save_csv: bool = True) -> Dict[str, Any]:
     results_b = results_data.get('B', {})  
     results_c = results_data.get('C', {})
     
-    efficiency_metrics = analyze_efficiency_metrics(results_a, results_b, results_c)
+    efficiency_metrics = _analyze_efficiency_metrics(results_a, results_b, results_c)
     
-    display_efficiency_results(results_a, results_b, results_c, efficiency_metrics)
+    _display_efficiency_results(results_a, results_b, results_c, efficiency_metrics)
     
     comparison_table = None
     if save_csv:
-        comparison_table = save_efficiency_results(results_a, results_b, results_c, efficiency_metrics)
+        comparison_table = _save_efficiency_results(results_a, results_b, results_c, efficiency_metrics)
     
     return {
         'results': {'A': results_a, 'B': results_b, 'C': results_c},
@@ -173,10 +177,9 @@ def run_comparison_study(simulation_module) -> Dict[str, Any]:
     print(f"   - Standardowe: {standard_count}")
     print(f"   - Niestandardowe: {custom_count}")
     
-    display_comparison_results(results, params, simulation_module)
+    _display_comparison_results(results, params, simulation_module)
     
     return results
-
 
 def test_custom_configuration(
     simulation_module,
@@ -196,7 +199,7 @@ def test_custom_configuration(
     params.lane_count = lane_count
     params.bus_lane = bus_lane
     params.traffic_intensity = traffic_intensity
-    params.privileged_percentage = privileged_percentage / 100.0
+    params.privileged_percentage = privileged_percentage / 100.0  # %
     params.verbosity = 1 if verbose else 0
     
     config_id = f"custom_{lane_count}lanes_{int(bus_lane)}bus_{traffic_intensity:.1f}int_{privileged_percentage}priv"
@@ -210,6 +213,7 @@ def test_custom_configuration(
         print(f"   ID konfiguracji: {config_id}")
     
     try:
+        # Utworzenie konfiguracji infrastruktury
         infrastructure_config = {
             'num_lanes': lane_count,
             'has_bus_lane': bus_lane,
@@ -218,9 +222,11 @@ def test_custom_configuration(
             'green_ratio': 0.6
         }
         
+        # Utworzenie i uruchomienie symulacji
         sim = simulation_module.create_simulation_with_parameters(params, infrastructure_config)
         sim_results = sim.run_simulation(save_data=True, data_filename=config_id)
         
+        # Sprawdzenie czy symulacja się powiodła
         if not sim_results or sim_results.get('completed_vehicles', 0) == 0:
             print("Symulacja zakończona niepowodzeniem - brak ukończonych pojazdów")
             return {}
@@ -273,7 +279,7 @@ def test_direct_parameter_approach(simulation_module) -> Dict[str, Any]:
     
     sim1 = simulation_module.create_simulation_with_parameters(params, minimal_params)
     sim1_raw = sim1.run_simulation()
-    sim1._calculate_final_statistics()
+    sim1._calculate_final_statistics()  # Oblicz statystyki
     results1 = sim1.statistics
     print(f"Wynik: {results1['avg_travel_time']:.1f}s średni czas, {results1['avg_speed']:.1f} km/h")
     
@@ -288,7 +294,7 @@ def test_direct_parameter_approach(simulation_module) -> Dict[str, Any]:
     
     sim2 = simulation_module.create_simulation_with_parameters(params, maximal_params)
     sim2_raw = sim2.run_simulation()
-    sim2._calculate_final_statistics()
+    sim2._calculate_final_statistics()  # Oblicz statystyki
     results2 = sim2.statistics
     print(f"Wynik: {results2['avg_travel_time']:.1f}s średni czas, {results2['avg_speed']:.1f} km/h")
     
@@ -301,7 +307,7 @@ def test_direct_parameter_approach(simulation_module) -> Dict[str, Any]:
     return {'minimal': results1, 'maximal': results2}
 
 
-def analyze_efficiency_metrics(results_a: Dict, results_b: Dict, results_c: Dict) -> Dict[str, float]:
+def _analyze_efficiency_metrics(results_a: Dict, results_b: Dict, results_c: Dict) -> Dict[str, float]:
     """Analizuje metryki efektywności między scenariuszami"""
     efficiency_metrics = {}
     
@@ -329,7 +335,7 @@ def analyze_efficiency_metrics(results_a: Dict, results_b: Dict, results_c: Dict
     return efficiency_metrics
 
 
-def display_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, efficiency_metrics: Dict):
+def _display_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, efficiency_metrics: Dict):
     """Wyświetla wyniki analizy efektywności"""
     print("\n" + "="*60)
     print("ANALIZA EFEKTYWNOŚCI BUSPASA")
@@ -410,10 +416,10 @@ def display_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict
     df = pd.DataFrame(comparison_data)
     print(df.to_string(index=False))
     
-    display_conclusions(efficiency_metrics)
+    _display_conclusions(efficiency_metrics)
 
 
-def display_conclusions(efficiency_metrics: Dict):
+def _display_conclusions(efficiency_metrics: Dict):
     """Wyświetla wnioski z analizy"""
     print("\n" + "="*60)
     print("WNIOSKI Z ANALIZY")
@@ -437,7 +443,7 @@ def display_conclusions(efficiency_metrics: Dict):
         print("Buspas nie redukuje korków")
 
 
-def save_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, efficiency_metrics: Dict) -> pd.DataFrame:
+def _save_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, efficiency_metrics: Dict) -> pd.DataFrame:
     """Zapisuje wyniki efektywności do plików CSV"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
@@ -504,7 +510,7 @@ def save_efficiency_results(results_a: Dict, results_b: Dict, results_c: Dict, e
     return df
 
 
-def display_comparison_results(results: Dict[str, Any], params, simulation_module):
+def _display_comparison_results(results: Dict[str, Any], params, simulation_module):
     """Wyświetla analizę porównawczą wyników"""
     print("\n" + "="*60)
     print("PODSUMOWANIE WYNIKÓW")
@@ -561,12 +567,12 @@ def display_comparison_results(results: Dict[str, Any], params, simulation_modul
         
         print(f"{variant}: {desc}")
     
-    display_rankings(results)
-    display_hypotheses_verification(results)
-    display_recommendations(results)
+    _display_rankings(results)
+    _display_hypotheses_verification(results)
+    _display_recommendations(results)
 
 
-def display_rankings(results: Dict[str, Any]):
+def _display_rankings(results: Dict[str, Any]):
     """Wyświetla rankingi wariantów"""
     print("\n" + "="*60)
     print("RANKING WARIANTÓW")
@@ -612,166 +618,177 @@ def display_rankings(results: Dict[str, Any]):
         print(f"   {i}. Wariant {variant}: {total_entered} wjechało, {completed} ukończyło")
 
 
-def display_hypotheses_verification(results: Dict[str, Any]):
+def z_test_wariantow(results_a : Dict[str, Any], results_b: Dict[str, Any]):
+    """Z_test dla dwóch niezależnych zbiorów danych"""
+
+    alpha = 0.05
+
+    if np.mean(results_a)<np.mean(results_b):
+        a="smaller"
+    else:
+        a="larger"
+
+    # z=((np.mean(results_a)-np.mean(results_b))/(np.var(results_a,ddof=1)/len(results_a)+np.var(results_b,ddof=1)/len(results_b))**0.5)
+    # p=1-stats.norm.cdf(abs(z))
+    # print("wartość statystyki obliczona ze wzoru z=", z)
+    # print("na podstawie wartości statystyki z obliczono p-wartość=", p)
+    print(f"Średnia wariantu 1 {np.mean(results_a)} || Średnia wariantu 2 {np.mean(results_b)}")
+    z , p_value=ztest(results_a,results_b,usevar="unequal",alternative=a)
+    print(f"wynik z-testu z biblioteki weightstats: (z-test statistic)= {z}, (p_value) = {p_value}")
+
+    if p_value <= alpha:
+        print("Odrzucamy hipotezę zerową")
+    else:
+        print("Nie mamy na tyle silnych dowodów by odrzucić hipotezę zerową")
+
+    return z, p_value
+
+def get_bus_exited_vectors_for_variants(data_dir: str = "simulation_data"):
+    """Zlicza ilośc autobusów, które opuściły ruch dla każdego wariantu w każdej iteracji"""
+
+
+    variant_patterns_bus = {
+        'A': 'variant_a',
+        'B': 'variant_b',
+        'C': 'variant_c',
+        'D': 'variant_d',
+    }
+
+
+    result_bus = {}
+    result_capacity = {}
+
+    for key, pattern in variant_patterns_bus.items():
+        vehicle_files = sorted(glob.glob(os.path.join(data_dir, f"*{pattern}*_vehicles.csv")))
+        vector = [] 
+        vector_capacity = []
+        for vf in vehicle_files:
+            base = os.path.basename(vf).replace('_vehicles.csv', '')
+            c = os.path.join(data_dir, f"{base}_config.csv")
+            if not os.path.exists(c):
+                continue
+            try:
+                vehicles_df = pd.read_csv(vf)
+                config_df = pd.read_csv(c)
+                stats = calculate_statistics_from_raw_data(vehicles_df, config_df.iloc[0])
+                vector.append(int(stats.get('bus_exited_count', 0)))
+                vector_capacity.append(int(stats.get('total_vehicles', 0)))
+            except Exception as e:
+                print(f"Błąd przy analizie {vf}: {e}")
+        result_bus[key] = vector
+        result_capacity[key] = vector_capacity
+    
+    variant_patterns_capacity = []
+
+    #tworzymy krotki z wynikami przepustowości w każdej iteracji
+    for row in zip(result_capacity['A'], result_capacity['B'], result_capacity['C'], result_capacity['D']):
+        variant_patterns_capacity.append(row)
+
+            
+
+    return result_bus, variant_patterns_capacity
+
+def _display_hypotheses_verification(results: Dict[str, Any]):
     """Wyświetla weryfikację hipotez badawczych"""
     print("\n" + "="*60)
     print("WERYFIKACJA HIPOTEZ BADAWCZYCH")
     print("="*60)
     
     print("\n1. Hipoteza: Buspas usprawnia ruch komunikacji miejskiej - porównanie wariantów z tą samą liczbą pasów.")
-    
-    with_bus = []
-    without_bus = []
-    for variant, data in results.items():
-        if variant in ['B', 'C'] and data.get('bus_efficiency', 0) > 0:
-            with_bus.append(data.get('total_entered', None))
 
-        elif variant in ['A', 'D'] and data.get('bus_efficiency', 0) == 0:
-            without_bus.append(data.get('total_entered', None))
+    try:
+        vectors, tuples_capacity = get_bus_exited_vectors_for_variants()
+        vector_A = vectors.get('A', [])
+        print(vector_A)
+        vector_B = vectors.get('B', [])
+        vector_C = vectors.get('C', [])
+        vector_D = vectors.get('D', [])
+    except Exception as e:
+        print(f"Błąd podczas pobierania wektorów autobusów: {e}")
+        return
 
-        elif variant.startswith('CUSTOM_'):
-            if data.get('bus_efficiency', 0) > 0:
-                with_bus.append(data.get('total_entered', None))
-            else:
-                without_bus.append(data.get('total_entered', None))
-    
-    with_bus = [x for x in with_bus if not None]
-    without_bus = [x for x in without_bus if not None]
+    print("\n 1.1 Test statystyczny Z-test na liczbie autobusów opuszczających drogę")
 
-    print("\n 1.1 Test statystyczny t-studenta ")
-
-    if len(with_bus) < 2 or len(without_bus) < 2:
+    if len(vector_A) < 2 or len(vector_B) < 2 or len(vector_C) < 2 or len(vector_D) < 2:
         print("Za mało danych do testu statystycznego (min. 2 w każdej grupie)")
         return None
+    else:
+        print('\n---------------------- Testujemy wariant A i C ----------------------')   
+        z_test_wariantow(vector_A, vector_C)
+        print('\n---------------------- Testujemy wariant A i B ----------------------')   
+        z_test_wariantow(vector_A, vector_B)
+        print('\n---------------------- Testujemy wariant D i B ----------------------')   
+        z_test_wariantow(vector_D, vector_B)
+        print('\n---------------------- Testujemy wariant D i C ----------------------')   
+        z_test_wariantow(vector_D, vector_C)
+        print("\n")
     
-    t_stats, p_value = stats.ttest_ind(with_bus, without_bus, equal_var=False)
+    print("\n2. Hipoteza: Większa liczba pasów zwiększa przepustowość - porównanie wariantów bez buspasa")
+    
+    print("Test korelacji Perasona\n")
 
-    print(f"Wynik testu t-Studenta: t={t_stats:.3f}, p={p_value:.4f}")
+    var_A = [krotka[0] for krotka in tuples_capacity]
+    var_B = [krotka[1] for krotka in tuples_capacity]
+    var_C = [krotka[2] for krotka in tuples_capacity]
+    var_D = [krotka[3] for krotka in tuples_capacity]
+
+    lanes = [3] * len(var_A) + [2] * len(var_B) + [4] * len(var_C) + [4] * len(var_D)
+    capacity = var_A + var_B + var_C + var_D
+
+    # Wszystkie pary wariantów do porównania
+    # pairs = [
+    #     ('A', 'B', var_A, var_B),
+    #     ('A', 'C', var_A, var_C),
+    #     ('A', 'D', var_A, var_D),
+    #     ('B', 'C', var_B, var_C),
+    #     ('B', 'D', var_B, var_D),
+    #     ('C', 'D', var_C, var_D),
+    # ]
+
+    # for name1, name2, data1, data2 in pairs:
+    #     print(f'\n---------------------- Testujemy wariant {name1} i {name2} ----------------------')
+    #     corr, p_value = z_test_wariantow(data1, data2)
+
+    corr, p_value = pearsonr(lanes, capacity)
+
+    print(f"r={corr:.2f}, p={p_value}")
+
     if p_value < 0.05:
-        print("Różnica istotna statystycznie (p < 0.05)")
-        print("Mamy podstawy by twierdzić, że buspas nie ma wpływu na ruch")
-    else:
-        print("Brak istotnej różnicy (p >= 0.05)")
-        print("Nie mamy mocnych dowodów by twierdzić, że buspas wpływa na ruch")
-
-    print("\n   PORÓWNANIE WPŁYWU BUSPASA PRZY RÓŻNEJ LICZBIE PASÓW:")
-    bus_variants = []
-    base_lanes = 0
-    comparison_variant = None
-
-    for variant, data in results.items():
-        if variant in ['B', 'C'] and data['bus_efficiency'] > 0:
-            if variant == 'B':
-                base_lanes = 2
-                comparison_variant = None
-            elif variant == 'C':
-                base_lanes = 3
-                comparison_variant = 'A'
-            
-            throughput = data.get('total_entered', data['total_vehicles'])
-            completion = data.get('completion_rate', 0)
-            efficiency = data.get('bus_efficiency', 0)
-            
-            bus_variants.append((variant, base_lanes, throughput, completion, efficiency, comparison_variant))
-    
-    for variant, lanes, throughput, completion, efficiency, comparison in bus_variants:
-        print(f"   • Wariant {variant}: {lanes} pasy + buspas → {throughput} pojazdów ({completion:.1f}% ukończenia, {efficiency:.1f}% efektywność)")
-        
-        if comparison and comparison in results:
-            comp_data = results[comparison]
-            comp_throughput = comp_data.get('total_entered', comp_data['total_vehicles'])
-            comp_completion = comp_data.get('completion_rate', 0)
-            
-            if comp_throughput > 0:
-                throughput_gain = ((throughput - comp_throughput) / comp_throughput * 100)
-                completion_gain = completion - comp_completion
-                print(f"     vs {comparison}: {throughput_gain:+.1f}% przepustowości, {completion_gain:+.1f}% ukończenia")
-
-
-    print("\n2. Hipoteza: Większa liczba pasów zwiększa przepustowość - porównanie wariantów bez buspasa.")
-    
-    lanes_list = []
-    capacity_list = []
-
-    for variant, data in results.items():
-        lanes = None
-        has_bus_lane = False
-
-        # Niestandardowe scenariusze
-        if 'description' in data:
-            desc = data['description']
-            import re
-            m = re.search(r"(\d+) pas", desc)
-            if m:
-                lanes = int(m.group(1))
-            if 'buspas' in desc:
-                has_bus_lane = True
-
-        # Standardowe scenariusze
-        elif variant in ['A', 'B', 'C', 'D']:
-            if variant == 'A': lanes = 3
-            if variant == 'B': lanes = 2; has_bus_lane = True
-            if variant == 'C': lanes = 3; has_bus_lane = True
-            if variant == 'D': lanes = 4
-
-        # Szukaj w innym miejscu
-        if lanes is None:
-            lanes = data.get('num_lanes') or data.get('lane_count')
-            if isinstance(lanes, str):
-                try: lanes = int(lanes)
-                except: lanes = None
-        if data.get('has_bus_lane', False):
-            has_bus_lane = True
-
-        total_lanes = lanes + 1 if has_bus_lane and lanes is not None else lanes
-        output = data.get('total_entered', data.get('total_vehicles', None))
-
-        if total_lanes is not None and output is not None:
-            lanes_list.append(total_lanes)
-            capacity_list.append(output)
-
-    print("Test korelacji Perasona - domyślamy się, że zależność będzie liniowa\n")
-    if len(lanes_list) < 2 or len(capacity_list) < 2:
-        print("Za mało danych do testu korelacji (min. 2 obserwacje).")
-    else:
-        corr, p_value = pearsonr(lanes_list, capacity_list)
-        print(f"r={corr:.2f}, p={p_value:.4f}")
-        if p_value < 0.05:
-            print("Zależność istotna statystycznie")
-            print("Większa ilość pasów zwiększa przepustowość")
+        if corr > 0:
+                print("Zależność istotna statystycznie - korelacja dodatnia")
         else:
-            print("Brak istotnej zależności")
-            print("Większa ilośc pasów nie zwiększa przepustowości")
+                print("Zależność istotna statystycznie - korelacja ujemna")
+    else:
+            print("Brak istotnej zależności statystycznej")
 
-
-    print("\n3. Hipoteza: Wskaźnik ukończenia podróży jest kluczowy - analiza tylko standardowych wariantów.")
+    # print("\n3. Hipoteza: Wskaźnik ukończenia podróży jest kluczowy - analiza tylko standardowych wariantów.")
     
-    # Znajdź warianty z najlepszym i najgorszym wskaźnikiem ukończenia wśród standardowych
-    standard_completion_rates = [(k, v.get('completion_rate', 100.0), v.get('vehicles_in_queue', 0), v.get('vehicles_in_traffic', 0)) 
-                                for k, v in results.items() if k in ['A', 'B', 'C', 'D']]
-    standard_completion_rates.sort(key=lambda x: x[1], reverse=True)
+    # # Znajdź warianty z najlepszym i najgorszym wskaźnikiem ukończenia wśród standardowych
+    # standard_completion_rates = [(k, v.get('completion_rate', 100.0), v.get('vehicles_in_queue', 0), v.get('vehicles_in_traffic', 0)) 
+    #                             for k, v in results.items() if k in ['A', 'B', 'C', 'D']]
+    # standard_completion_rates.sort(key=lambda x: x[1], reverse=True)
     
-    if standard_completion_rates:
-        best = standard_completion_rates[0]
-        worst = standard_completion_rates[-1]
-        print(f"   • Najlepszy wskaźnik ukończenia: {best[0]} ({best[1]:.1f}%)")
-        print(f"     - W kolejce: {best[2]}, w ruchu: {best[3]}")
-        print(f"   • Najgorszy wskaźnik ukończenia: {worst[0]} ({worst[1]:.1f}%)")
-        print(f"     - W kolejce: {worst[2]}, w ruchu: {worst[3]}")
+    # if standard_completion_rates:
+    #     best = standard_completion_rates[0]
+    #     worst = standard_completion_rates[-1]
+    #     print(f"   • Najlepszy wskaźnik ukończenia: {best[0]} ({best[1]:.1f}%)")
+    #     print(f"     - W kolejce: {best[2]}, w ruchu: {best[3]}")
+    #     print(f"   • Najgorszy wskaźnik ukończenia: {worst[0]} ({worst[1]:.1f}%)")
+    #     print(f"     - W kolejce: {worst[2]}, w ruchu: {worst[3]}")
         
-        rate_difference = best[1] - worst[1]
-        print(f"   Różnica w efektywności standardowych wariantów: {rate_difference:.1f} punktów procentowych")
+    #     rate_difference = best[1] - worst[1]
+    #     print(f"   Różnica w efektywności standardowych wariantów: {rate_difference:.1f} punktów procentowych")
         
-        print(f"\n   ANALIZA PRZYCZYN:")
-        for variant, completion, in_queue, in_traffic in standard_completion_rates:
-            total_incomplete = in_queue + in_traffic
-            if total_incomplete > 0:
-                queue_ratio = (in_queue / total_incomplete * 100) if total_incomplete > 0 else 0
-                traffic_ratio = (in_traffic / total_incomplete * 100) if total_incomplete > 0 else 0
-                print(f"   • {variant}: {queue_ratio:.0f}% problem kolejki, {traffic_ratio:.0f}% problem korków")
+    #     print(f"\n   ANALIZA PRZYCZYN:")
+    #     for variant, completion, in_queue, in_traffic in standard_completion_rates:
+    #         total_incomplete = in_queue + in_traffic
+    #         if total_incomplete > 0:
+    #             queue_ratio = (in_queue / total_incomplete * 100) if total_incomplete > 0 else 0
+    #             traffic_ratio = (in_traffic / total_incomplete * 100) if total_incomplete > 0 else 0
+    #             print(f"   • {variant}: {queue_ratio:.0f}% problem kolejki, {traffic_ratio:.0f}% problem korków")
 
 
-def display_recommendations(results: Dict[str, Any]):
+def _display_recommendations(results: Dict[str, Any]):
     """Wyświetla rekomendacje"""
     print("\n" + "="*60)
     print("REKOMENDACJE")
@@ -795,6 +812,7 @@ def display_recommendations(results: Dict[str, Any]):
     print(f"NAJWYŻSZY WSKAŹNIK UKOŃCZENIA: Wariant {best_completion[0]} ({best_completion[1].get('completion_rate', 100.0):.1f}%)")
     print(f"NAJWYŻSZA PRZEPUSTOWOŚĆ: Wariant {best_throughput[0]} ({best_throughput[1].get('total_entered', best_throughput[1]['total_vehicles'])} pojazdów)")
     
+    # Analiza kompromisowa - znajdź wariant w top 3 w większości kategorii
     print(f"\nANALIZA KOMPROMISOWA:")
     top3_travel = [x[0] for x in travel_time_ranking[:3]]
     top3_completion = [x[0] for x in completion_ranking[:3]]
